@@ -1,0 +1,34 @@
+# Operating system
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Frontend libraries are installed in the image, never in the repository
+node_modules/
+
+# Data: raw inputs are committed, derived tables are not
+data/processed/**
+!data/processed/.gitkeep
+
+# Secrets and local overrides
+.env
+docker/compose.override.yaml
