@@ -1,100 +1,127 @@
-# Starting point
+# C to Gates: Watching a RISC-V Program Run All the Way Down
 
-A starting point for your own data visualization or small research project,
-from **EE292M: AI-Augmented R&D: Foundations and practice** (Stanford, Fall
-2026).
+An interactive, browser-based visualization that follows one small C program
+through every layer of abstraction: **C → RISC-V assembly → machine code →
+datapath → logic gates**. You can step through it cycle by cycle, and at each
+layer the values match what the real hardware would produce.
 
-It holds no code. It holds the standards a coding agent builds under, so that
-your first prompt can be almost entirely about your problem. The agent builds
-the rest: the container, the Makefile, a Python backend and a web page.
+> Status: planning. See `PROMPT.md` for the agent brief.
 
-## What is here
+## Why this is worth doing
 
-```text
-AGENTS.md        the rules, for anyone, human or AI, working in this repository
-CLAUDE.md        one line that points Claude Code to AGENTS.md
-ARCHITECTURE.md  the design: the stack, the layout, the container, the Makefile
-PROMPT.md        where you write your problem, before you paste it to the agent
-.gitignore       what never belongs in git: .DS_Store, .env, derived data
+Students learn each layer in a different course: C in intro programming,
+assembly in computer organization, datapaths in architecture, gates in digital
+logic. They rarely see **one** program cross **all** of these boundaries
+without a gap. Existing tools each cover only part of the stack:
+
+| Tool | C | Asm | Datapath | Gates |
+|---|---|---|---|---|
+| Compiler Explorer (godbolt) | ✅ | ✅ | – | – |
+| Ripes / Venus / RARS | partial | ✅ | ✅ (Ripes) | – |
+| Logisim / Digital / DigitalJS | – | – | manual | ✅ |
+| **This project** | ✅ | ✅ | ✅ | ✅ |
+
+The goal is that a viewer can click the `+` in `sum += i`, follow it to the
+`add` instruction, then to the ALU, then to the full adder computing bit 3,
+and see the actual 0s and 1s at that cycle.
+
+**Audience:** Students interesteded in the whole stack from SW to HW.
+
+**What they decide or learn:** Lean how a processor is implemented with a visual representation.
+
+## Architecture and the backend/frontend boundary
+
+```
+ BACKEND (offline, Python + CLI tools)                     FRONTEND (static web app)
+ ───────────────────────────────────────────────────┐   ┌──────────────────────────
+ compile()     C ──gcc──► ELF ──objdump──► asm, hex │   │ load artifacts
+ synthesize()  core.sv ──Yosys──► gate netlist.json │   │ render C / asm / hex panes
+ simulate()    netlist + hex ──► per-cycle trace    │   │ render datapath + gate views
+ verify()      trace vs. Spike golden log           │   │ step / scrub through cycles
+               ──► artifacts/*.json  ───────────────┼──►│ highlight, zoom, link layers
+ ───────────────────────────────────────────────────┘   └──────────────────────────
 ```
 
-Codex reads AGENTS.md directly. Claude Code reads CLAUDE.md, which imports
-it. Either agent ends up under the same rules.
+**The boundary sits after `simulate()` and `verify()`.** The backend produces
+fully evaluated, verified data: every net's value at every cycle. The frontend
+is a pure viewer. It reads JSON and draws it, and it never computes a logic
+value.
 
-## Before you start
+**What breaks if it were drawn one function earlier** (the backend ships only
+the netlist, and the frontend simulates it):
 
-You need git and a GitHub account, Docker (Docker Desktop, or Docker Engine
-with the Compose plugin), `make`, and Claude Code or Codex. Nothing else is
-installed on your machine; everything your project needs lives in its
-container.
+1. **Verification stops covering what users see.** `verify()` checks the
+   backend's simulation against Spike. If the browser runs its own simulator,
+   the values on screen come from code that was never checked. A bug in the JS
+   evaluator (signedness, bit ordering, X/uninitialized handling, reset
+   behavior) would show wrong gate values while every test passes.
+2. **Two simulators to keep in sync.** The JS evaluator would have to match
+   Verilator/Yosys semantics exactly and forever.
+3. **Performance moves to the client.** Evaluating thousands of gates per cycle
+   for hundreds of cycles, plus scrubbing backward in time, requires
+   snapshotting state in the browser. Precomputed traces make "jump to cycle
+   N" a plain array lookup.
 
-On Windows, work in PowerShell and Git Bash, not in a WSL Linux terminal, and
-run `make` from Git Bash.
+The cost of this boundary is size. Per-cycle values for every net can get big,
+so the trace is stored as value *changes* (VCD-style), not full snapshots, and
+the first slice limits the program to under 500 cycles.
 
-## How to use it
+*Future note:* supporting user-entered C (M5) adds a compile+simulate service
+on the backend. The boundary does not move: the frontend still only renders.
 
-1. **Make it yours.** Create a private repository on GitHub and copy these
-   files into it. Make the first commit on `main` yourself, then create a
-   feature branch for the agent.
-2. **Write your problem in PROMPT.md.** Say what, not how: the data or the
-   physics, what the page shows, the inputs and their limits. Then add the
-   truths the result must satisfy (see below).
-3. **Paste it to your agent.** It replies first with a plan, the files it will
-   touch, its assumptions and its questions. Read the plan the way you would
-   read a student's proposal. Correct it, answer the questions, then approve.
-   This is the cheapest moment to change the design.
-4. **Watch the build.** Refuse anything on the host. Never click "always
-   allow" for docker, gh, curl, wget, pip or brew; those belong in Makefile
-   targets. Keep the agent on its feature branch.
-5. **Check it yourself.** Run `make clean`, then `make verify`, and see it go
-   green. Look at what changed in GitHub Desktop and what is running in Docker
-   Desktop, not at the agent's summary of it.
-6. **Merge through a pull request** that you review. `main` changes no other
-   way.
+## Milestones
 
-Once the project exists, rewrite this README for it: what it does, how to run
-it, and what its results are fit for. AGENTS.md holds the agent to keeping it
-true.
+Riskiest first. Each milestone ends with a check that can be run.
 
-## Writing the prompt
+| # | Milestone | Done when |
+|---|---|---|
+| **M0** | **Gate-level spike (riskiest).** Synthesize the chosen core with Yosys, keeping module hierarchy, and render only the ALU's adder as gates in a browser page. | Gate count per module is reported; a 32-bit add of 5+3 shows correct values on the adder gates. |
+| M1 | **Software pipeline.** Fixed C program → RV32I ELF → asm listing + hex image; Spike golden commit log. | `a0 == 55` at exit in Spike; asm/hex regenerated from one command. |
+| M2 | **Hardware simulation.** Run the hex image on RTL and on the gate netlist; emit trace JSON. | Register-file writes match Spike for every retired instruction; gate-level sim equals RTL sim bit-for-bit every cycle. |
+| M3 | **Linked layer views.** C, asm, hex, and datapath panes; stepping highlights the active line and active datapath wires in all panes. | Clicking a C line highlights its asm lines (via DWARF line info) and vice versa. |
+| M4 | **Drill-down to gates.** Datapath → module (ALU, decoder, register file) → gates, with live values at the current cycle. | Every displayed bit matches the trace; spot-check script passes. |
+| M5 | *(Stretch)* **User-entered C** within a defined subset; rejected inputs give clear errors. | Test suite of accepted and rejected programs passes. |
 
-A good prompt names the standards file and moves on. What remains is the
-problem, and the lines only you could write: statements the result must
-satisfy, which become tests that fail when it is wrong. Each one should catch
-a bug a plot would hide. Check every one of them yourself before it goes in.
+## Top risks
 
-The reference example from Week 2:
+1. **Gate count and visual clutter.** Even a minimal RV32I core synthesizes to
+   thousands of gates, and the register file alone is 1,024 flip-flops plus
+   large read multiplexers. *Mitigation:* hierarchical drill-down only; never
+   draw the whole core flat; treat the register file and memories as
+   black-box blocks with values shown, not gates.
+2. **Synthesis destroys readable structure.** Optimizers (ABC) turn a clean
+   ripple-carry adder into unrecognizable logic, and flattening loses module
+   names. *Mitigation:* keep hierarchy (no `flatten`), map to a small gate
+   library (AND/OR/XOR/NOT/MUX), and if needed use a hand-written structural
+   ALU so the gates match the textbook picture.
+3. **Choosing the wrong core.** Production cores (PicoRV32, SERV, VexRiscv) are
+   multicycle, bit-serial, or heavily parameterized, and their structure won't
+   match how the course teaches datapaths. *Mitigation:* prefer a
+   single-cycle RV32I teaching core, e.g. the Harris & Harris *Digital Design
+   and Computer Architecture, RISC-V Edition* design. Confirm its license.
+4. **Mapping C to hardware events.** `-O0` code is verbose, `-O2` code
+   reorders and hides the source structure. *Mitigation:* pick one
+   optimization level (e.g. `-O1`) and use DWARF line tables for C↔asm mapping.
+5. **Toolchain friction.** Getting the RISC-V GCC, Spike, Yosys, and Verilator
+   to install the same way on every machine. *Mitigation:* pin versions in a
+   Dockerfile or Nix shell in M1; commit generated artifacts so the frontend
+   runs without the toolchain.
 
-```text
-Follow AGENTS.md.
+## Out of scope (for now)
 
-Build a small web app that plots the frequency response of a series RLC
-low-pass, output across the capacitor:
-H(f) = 1 / (1 − (2πf)²LC + j2πfRC).
+Pipelining and hazards, caches, the M/F/C extensions, interrupts and CSRs, an
+OS or libc, `printf`/I/O, timing and physical design (no transistors or
+layout), and compiling C in the browser.
 
-The user enters R, L and C, in ohms, henries and farads. The backend returns
-|H| in dB from f₀ / 1000 to 1000 f₀, at 100 points per decade, and the page
-plots it on a logarithmic frequency axis. Anything that is not a finite
-positive number, such as 10 or 1e-6, is rejected by the backend, and the page
-shows its message.
+## Repository layout (planned)
 
-It must satisfy, with f₀ = 1 / (2π√(LC)) and Q = (1/R)√(L/C):
-
-- 20 log₁₀ |H(f₀)| = 20 log₁₀ Q within 0.01 dB, for circuits across the
-  whole range of R from 1 mΩ to 1 MΩ, L from 1 nH to 10 H and C from 1 fF to
-  10 mF
-- For R = 10 Ω, L = 1 mH, C = 1 µF: 0 dB at f₀ / 1000, and a fall of 40 dB
-  from 100 f₀ to 1000 f₀, both within 0.1 dB
 ```
-
-If your project has a dataset, say where it lives (`data/raw/`, committed as
-received and never modified) and what a few of its numbers must come out to,
-computed by hand.
-
-## Staying honest
-
-- Results are computed by the backend and tested. The page draws them and
-  computes nothing a scientist would call a result.
-- A green check is a metric, not a proof. Ask of every result: what does this
-  actually claim, and what would falsify it?
-- You are accountable for everything you submit, whoever typed it.
+starting_point/        # forked base
+backend/
+  programs/sum.c       # the fixed demo program
+  rtl/                 # chosen RV32I core (+ LICENSE)
+  scripts/             # compile, synthesize, simulate, verify
+  artifacts/           # generated JSON consumed by frontend (committed)
+frontend/              # static web app
+tests/
+```
