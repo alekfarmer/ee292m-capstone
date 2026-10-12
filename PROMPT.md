@@ -65,9 +65,7 @@ functions, libc, or I/O.
 
 - **Toolchain:** `riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -O1 -g
   -nostdlib -ffreestanding`, with a minimal `crt0.S` (set `sp`, call `main`,
-  then halt) and a linker script. Reset PC = [TBD, e.g. `0x00000000`]; text
-  and data in one RAM of [TBD, e.g. 4 KiB]. Halt convention: [TBD, e.g. an
-  `ecall` or a write to a magic address].
+  then halt) and a linker script.
 - **Asm and C mapping:** `riscv64-unknown-elf-objdump -d -l` (DWARF line info).
 - **Golden model:** Spike (`riscv-isa-sim`), `--isa=rv32i --log-commits`.
 - **Core:** a single-cycle RV32I teaching core in SystemVerilog, preferably the
