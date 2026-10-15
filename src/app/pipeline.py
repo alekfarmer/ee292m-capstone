@@ -16,7 +16,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
-from app import hardware, render, software
+from app import hardware, render, simulate, software
 from app.errors import ArtifactMissingError, PipelineError
 from app.models import (
     AdderCaseInfo,
@@ -26,6 +26,9 @@ from app.models import (
     GoldenArtifact,
     ProgramArtifact,
     SourceLine,
+    TraceArtifact,
+    TraceSignal,
+    TraceVerification,
 )
 from app.paths import ARTIFACTS_DIR, BUILD_DIR, SUM_PROGRAM
 from app.tools import run_tool
@@ -36,6 +39,8 @@ ADDER_VALUES_FILE = "adder_values.json"
 PROGRAM_FILE = "program.json"
 GOLDEN_FILE = "golden.json"
 TOOLCHAIN_FILE = "toolchain.json"
+TRACE_FILE = "trace.json"
+EXTRA_CYCLES = 8  # simulate past Spike's halt, so a late halt is caught too
 
 ADDER_CASES = [
     hardware.AdderCase("5_plus_3", "5 + 3", 5, 3, 0),
@@ -101,6 +106,93 @@ def build_program_artifacts(
     return listing, golden
 
 
+def build_trace_artifacts(
+    out_dir: Path = ARTIFACTS_DIR, work_dir: Path = BUILD_DIR / "trace"
+) -> TraceArtifact:
+    """M2: run the program on the gate netlist and the RTL; verify; write trace.json.
+
+    Needs netlist.json, program.json, the hex image and golden.json in
+    ``out_dir``. Nothing is written unless every check passes:
+
+    * the gate level and the RTL agree on every common signal, every cycle
+      (every module port among them);
+    * no signal is x or z;
+    * PC, instruction and register writes match Spike for every instruction;
+    * x0 always reads 0;
+    * the core halts in the same cycle as Spike.
+
+    Raises:
+        PipelineError: a check failed (the message names the cycle and signal).
+    """
+    netlist_path = out_dir / NETLIST_FILE
+    netlist = hardware.load_netlist(netlist_path)
+    program = get_program(out_dir)
+    golden = get_golden(out_dir)
+    words = [
+        int(line, 16)
+        for line in (out_dir / program.image_file).read_text().splitlines()
+        if not line.startswith("//")
+    ]
+    n_sim = min(golden.retired + EXTRA_CYCLES, software.MAX_CYCLES)
+
+    gate = simulate.run_gate_level(netlist_path, words, n_sim, work_dir / "gate")
+    rtl = simulate.run_rtl(words, n_sim, work_dir / "rtl")
+
+    # Most specific check first, so a failure names the first cycle and
+    # signal that differ: gate vs RTL, then each instruction vs Spike, then
+    # the halt.
+    names = simulate.compared_signals(gate, rtl, netlist)
+    simulate.check_defined(gate, n_sim)
+    simulate.check_defined(rtl, n_sim)
+    simulate.compare_runs(gate, rtl, names, n_sim)
+    writes = simulate.check_against_golden(gate, golden)
+    simulate.check_x0(gate, n_sim)
+    halt = simulate.halt_cycle(gate, int(program.tohost, 16))
+    if halt != golden.retired - 1:
+        raise PipelineError(
+            f"the core halts in cycle {halt}, Spike after {golden.retired} instructions"
+        )
+    n = halt + 1
+
+    trace = _trace_from_run(gate, n, halt, names, writes)
+    _write_model(trace, out_dir / TRACE_FILE)
+    return trace
+
+
+def _hex(value: int | None, width: int) -> str:
+    if value is None:
+        raise PipelineError("cannot write an x/z value to the trace")
+    return f"0x{value:0{(width + 3) // 4}x}"
+
+
+def _trace_from_run(
+    run: simulate.SimRun, n: int, halt: int, compared: list[str], writes: int
+) -> TraceArtifact:
+    names = sorted(run.cycles[0])
+    widths = [run.widths[k] for k in names]
+    initial = [_hex(run.cycles[0][k], w) for k, w in zip(names, widths, strict=True)]
+    changes: list[list[tuple[int, str]]] = []
+    for c in range(1, n):
+        prev, cur = run.cycles[c - 1], run.cycles[c]
+        changes.append(
+            [(i, _hex(cur[k], widths[i])) for i, k in enumerate(names) if cur[k] != prev[k]]
+        )
+    return TraceArtifact(
+        cycles=n,
+        halt_cycle=halt,
+        signals=[TraceSignal(name=k, width=w) for k, w in zip(names, widths, strict=True)],
+        initial=initial,
+        changes=changes,
+        verification=TraceVerification(
+            gate_vs_rtl_signals=len(compared),
+            gate_vs_rtl_cycles=n,
+            register_writes_checked=writes,
+            rtl_simulator="Icarus Verilog",
+            gate_simulator="Yosys sim",
+        ),
+    )
+
+
 def toolchain_versions() -> dict[str, str]:
     """The exact versions of every tool, as the tools themselves report them."""
 
@@ -118,6 +210,7 @@ def toolchain_versions() -> dict[str, str]:
         "gcc": first_line(software.GCC, "--version"),
         "binutils": first_line(software.OBJDUMP, "--version"),
         "yosys": first_line(hardware.YOSYS, "-V"),
+        "iverilog": first_line(simulate.IVERILOG, "-V"),
         "spike": spike_version.group(1) if spike_version else "unknown",
         "spike_commit": spike_commit.read_text().strip() if spike_commit.exists() else "unknown",
     }
@@ -129,6 +222,7 @@ def build_all(out_dir: Path = ARTIFACTS_DIR) -> None:
     (out_dir / TOOLCHAIN_FILE).write_text(json.dumps(toolchain_versions(), indent=2) + "\n")
     build_hardware_artifacts(out_dir)
     build_program_artifacts(out_dir=out_dir)
+    build_trace_artifacts(out_dir)
 
 
 # --- serving -------------------------------------------------------------------
@@ -154,6 +248,11 @@ def get_program(art_dir: Path = ARTIFACTS_DIR) -> ProgramArtifact:
 def get_golden(art_dir: Path = ARTIFACTS_DIR) -> GoldenArtifact:
     """GET /api/golden: Spike's commit log."""
     return _read(GoldenArtifact, GOLDEN_FILE, art_dir)
+
+
+def get_trace(art_dir: Path = ARTIFACTS_DIR) -> TraceArtifact:
+    """GET /api/trace: every net's value in every cycle."""
+    return _read(TraceArtifact, TRACE_FILE, art_dir)
 
 
 def get_gate_counts(art_dir: Path = ARTIFACTS_DIR) -> GateCountReport:

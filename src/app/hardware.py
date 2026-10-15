@@ -8,7 +8,6 @@ Yosys is the only simulator: the values shown on the adder gates come from
 """
 
 import json
-import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +24,7 @@ from app.models import (
 )
 from app.paths import REPO_ROOT, SYNTH_SCRIPT
 from app.tools import run_tool
+from app.vcd import final_values, read_timeline
 
 YOSYS = "yosys"
 
@@ -54,6 +54,9 @@ SUMMARY_ROWS = [
     ("ALU", "alu"),
     ("ALU adder (ripple-carry)", "adder32"),
     ("Full adder (one bit)", "full_adder"),
+    ("ALU logic unit (and/or/xor)", "logicunit"),
+    ("ALU shifter", "shifter"),
+    ("ALU result mux", "resultmux"),
     ("Immediate decoder", "extend"),
     ("Load/store unit", "lsu"),
 ]
@@ -221,7 +224,7 @@ def simulate_adder(
             ],
             cwd=work_dir,
         )
-        signals = parse_vcd(vcd.read_text())
+        signals = final_values(read_timeline(vcd.read_text()))
         results.append(_case_values(case, signals, fa_cells, fa_wires))
     return AdderValuesArtifact(module=ADDER_MODULE, cases=results)
 
@@ -280,48 +283,3 @@ def _case_values(
         cout=cout,
         bits=bits,
     )
-
-
-# --- VCD reading ---------------------------------------------------------------
-
-_VAR = re.compile(r"\$var\s+\S+\s+(\d+)\s+(\S+)\s+(\S+)(?:\s+\[[^\]]*\])?\s+\$end")
-
-
-def parse_vcd(text: str) -> dict[str, int | None]:
-    """Read a VCD file and return the final value of every signal.
-
-    Keys are dotted hierarchical names (``top.inst.wire``); escaped names
-    lose their leading backslash. A value containing x or z is ``None``.
-    """
-    scopes: list[str] = []
-    ids: dict[str, list[str]] = {}
-    values: dict[str, int | None] = {}
-    tokens = iter(text.split("\n"))
-    for line in tokens:
-        line = line.strip()
-        if line.startswith("$scope"):
-            scopes.append(line.split()[2].lstrip("\\"))
-        elif line.startswith("$upscope"):
-            scopes.pop()
-        elif line.startswith("$var"):
-            m = _VAR.match(line)
-            if not m:
-                raise PipelineError(f"cannot parse VCD line: {line}")
-            name = ".".join([*scopes, m.group(3).lstrip("\\")])
-            ids.setdefault(m.group(2), []).append(name)
-        elif line.startswith("$enddefinitions"):
-            break
-    for line in tokens:
-        line = line.strip()
-        if not line or line[0] in "#$":
-            continue
-        if line[0] in "bB":
-            raw, code = line[1:].split()
-        elif line[0] in "01xXzZ":
-            raw, code = line[0], line[1:]
-        else:
-            continue  # real-valued and other changes are not used
-        value = None if any(ch in raw for ch in "xXzZ") else int(raw, 2)
-        for name in ids.get(code, []):
-            values[name] = value
-    return values

@@ -159,6 +159,44 @@ class AdderView(Strict):
     svg: str
 
 
+# --- M2: trace.json --------------------------------------------------------
+
+
+class TraceSignal(Strict):
+    """One net of the gate-level design, named relative to ``top``."""
+
+    name: str = Field(description="e.g. 'rv.dp.alu.result' or 'rv.dp.alu.add.g_bit[3].fa.s'")
+    width: int = Field(ge=1)
+
+
+class TraceVerification(Strict):
+    """What was checked before the trace was written."""
+
+    gate_vs_rtl_signals: int = Field(description="signals compared with the RTL run each cycle")
+    gate_vs_rtl_cycles: int
+    register_writes_checked: int = Field(description="register writes matched against Spike")
+    rtl_simulator: str
+    gate_simulator: str
+
+
+class TraceArtifact(Strict):
+    """Every net's value in every cycle of the gate-level run, as changes.
+
+    ``initial[i]`` is signal ``i`` in cycle 0. ``changes[n - 1]`` lists the
+    ``[signal index, value]`` pairs that differ in cycle ``n`` from cycle
+    ``n - 1``. Values are hex strings with ``ceil(width / 4)`` digits, bit 0
+    the LSB. Cycle ``n`` holds the values just before its rising clock edge,
+    so it is instruction ``n`` of golden.json.
+    """
+
+    cycles: int
+    halt_cycle: int = Field(description="the cycle that stores to tohost")
+    signals: list[TraceSignal]
+    initial: list[str]
+    changes: list[list[tuple[int, str]]]
+    verification: TraceVerification
+
+
 class Health(Strict):
     """Liveness answer."""
 

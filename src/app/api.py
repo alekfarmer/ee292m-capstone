@@ -16,6 +16,7 @@ from app.models import (
     GoldenArtifact,
     Health,
     ProgramArtifact,
+    TraceArtifact,
 )
 from app.paths import VENDOR_DIR, WEB_DIR
 
@@ -54,6 +55,12 @@ def program() -> ProgramArtifact:
 def golden() -> GoldenArtifact:
     """Spike's commit log for the fixed program (M1)."""
     return pipeline.get_golden()
+
+
+@app.get("/api/trace")
+def trace() -> TraceArtifact:
+    """Every net's value in every cycle of the gate-level run (M2)."""
+    return pipeline.get_trace()
 
 
 @app.get("/api/gate-counts")

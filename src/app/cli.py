@@ -31,6 +31,13 @@ def main(argv: list[str] | None = None) -> int:
             f"Spike: {golden.retired} instructions retired, "
             f"a0 = {golden.a0_at_halt}, exit code {golden.exit_code}"
         )
+        trace = pipeline.get_trace()
+        v = trace.verification
+        print(
+            f"Trace: {trace.cycles} cycles, {len(trace.signals)} signals; "
+            f"gate level = RTL on {v.gate_vs_rtl_signals} signals every cycle; "
+            f"{v.register_writes_checked} register writes match Spike"
+        )
         for case in pipeline.list_adder_cases():
             view = pipeline.get_adder_view(case.case_id)
             print(f"Adder {view.label}: sum = {view.sum}, cout = {view.cout}")
