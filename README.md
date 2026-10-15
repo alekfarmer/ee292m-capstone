@@ -5,7 +5,75 @@ through every layer of abstraction: **C → RISC-V assembly → machine code →
 datapath → logic gates**. You can step through it cycle by cycle, and at each
 layer the values match what the real hardware would produce.
 
-> Status: planning. See `PROMPT.md` for the agent brief.
+> Status: **M0 and M1 done** (gate-level adder spike, software pipeline).
+> M2 (simulating the whole core) is next. See `PROMPT.md` for the brief.
+
+## Quick start
+
+You need Docker (running), GNU Make and git. Nothing else is installed on
+your machine; every tool runs inside the project's container.
+
+```sh
+make build      # first time: ~15-25 min (Yosys and Spike are built from source)
+make up         # http://127.0.0.1:8000  (port: APP_PORT in .env, see .env.example)
+make down
+make verify     # the gate: build, lint, tests, smoke check
+make help       # every target
+```
+
+The page shows the ALU's 32-bit ripple-carry adder at gate level, with the
+real values on every wire for `5 + 3` and `0xFFFFFFFF + 1`. Hover a wire for
+its name and value.
+
+`make artifacts` regenerates everything in `backend/artifacts/` from the
+sources; the generated files are committed, and the tests fail if they are
+stale.
+
+## What exists now
+
+| Path | What |
+|---|---|
+| `backend/rtl/` | Single-cycle RV32I core in SystemVerilog, MIT (`docs/core-choice.md`); `synth.ys` |
+| `backend/programs/` | `sum.c` (the fixed program), `crt0.S`, `link.ld` (4 KiB RAM at `0x80000000`) |
+| `backend/artifacts/` | Generated, committed (below) |
+| `src/app/` | Python backend: pipelines and the API (`/docs` lists the endpoints) |
+| `src/web/` | The page (plain HTML, JS and SVG) |
+| `tests/` | pytest: M0, M1, rejected programs, API |
+
+Artifacts:
+
+| File | Contents |
+|---|---|
+| `netlist.json` | Yosys JSON netlist, hierarchy kept, gates in {AND, OR, XOR, NOT, MUX, DFF}; register file and RAM are black boxes |
+| `gate_counts.json` | Gates per module, local and including submodules |
+| `adder_values.json` | Every net in the adder for each input case, from Yosys `sim` on the netlist |
+| `program.json` | C lines; asm lines `{addr, hex, text, function, c_line}` |
+| `sum.hex` | The whole 4 KiB RAM image, one little-endian word per line (`$readmemh`) |
+| `golden.json` | Spike commit log `{pc, insn, rd, rd_value}` from `_start` to the halt |
+| `toolchain.json` | The version each tool reports |
+
+Gate counts (including submodules; register file and RAM count as 0):
+
+| Part | Module | Gates |
+|---|---|---|
+| Top level | `top` | 2191 (786 AND, 605 OR, 227 XOR, 70 NOT, 471 MUX, 32 DFF) |
+| Control unit | `controller` | 78 |
+| Main decoder | `maindec` | 39 |
+| ALU decoder | `aludec` | 25 |
+| Datapath | `datapath` | 2113 |
+| ALU | `alu` | 1197 (the barrel shifter is most of it) |
+| ALU adder | `adder32` | 160 = 32 x (2 XOR + 2 AND + 1 OR) |
+
+**Compile flags:** `-march=rv32i -mabi=ilp32 -Og -g -nostdlib -ffreestanding`.
+The brief suggested `-O1`, but at `-O1` GCC computes the loop at compile time
+and `main` becomes `addi a0,zero,55; ret`, leaving nothing to visualize. `-Og`
+keeps the loop (`add a0,a0,a5` / `addi` / `bge`) with every instruction
+mapped to a C line, and Spike retires 57 instructions.
+
+**Rejected programs:** floats, `*` `/` `%`, `#include`, calls into libc or
+other undefined functions, images larger than RAM, and programs that do not
+halt within 500 instructions each give one clear error (see
+`tests/test_rejections.py`).
 
 ## Why this is worth doing
 
@@ -27,7 +95,7 @@ and see the actual 0s and 1s at that cycle.
 
 **Audience:** Students interesteded in the whole stack from SW to HW.
 
-**What they decide or learn:** Lean how a processor is implemented with a visual representation.
+**What they decide or learn:** Learn how a processor is implemented with a visual representation.
 
 ## Architecture and the backend/frontend boundary
 
@@ -113,15 +181,7 @@ Pipelining and hazards, caches, the M/F/C extensions, interrupts and CSRs, an
 OS or libc, `printf`/I/O, timing and physical design (no transistors or
 layout), and compiling C in the browser.
 
-## Repository layout (planned)
+## Repository layout
 
-```
-starting_point/        # forked base
-backend/
-  programs/sum.c       # the fixed demo program
-  rtl/                 # chosen RV32I core (+ LICENSE)
-  scripts/             # compile, synthesize, simulate, verify
-  artifacts/           # generated JSON consumed by frontend (committed)
-frontend/              # static web app
-tests/
-```
+See "What exists now" above and `ARCHITECTURE.md`, which describes how the
+project is built and is kept up to date.
