@@ -61,11 +61,14 @@ RUN git checkout "${SPIKE_COMMIT}" \
 
 # --------------------------------------------------------------------------
 FROM ${PYTHON_BASE} AS final
-# Debian trixie package versions are pinned exactly.
+# Debian trixie package versions are pinned exactly. iverilog's binary
+# rebuild suffix differs by architecture (+b1 amd64, +b2 arm64), so it is
+# pinned to the source version 12.0-2.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       gcc-riscv64-unknown-elf=14.2.0+19 \
       binutils-riscv64-unknown-elf=2.44-3+7+b1 \
+      'iverilog=12.0-2*' \
       device-tree-compiler \
       libreadline8t64 libtcl8.6 libffi8 zlib1g \
  && rm -rf /var/lib/apt/lists/*
