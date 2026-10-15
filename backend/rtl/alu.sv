@@ -1,5 +1,8 @@
-// RV32I ALU. Addition, subtraction and both set-less-than operations use the
-// structural ripple-carry adder32; a - b is computed as a + ~b + 1.
+// RV32I ALU, built from blocks so each can be drawn on its own:
+//   adder32   a + b or a + ~b + 1 (structural ripple carry)
+//   logicunit and / or / xor
+//   shifter   sll / srl / sra
+//   resultmux picks the result by alucontrol
 //
 // alucontrol: 0000 add  0001 sub  0010 and  0011 or   0100 xor
 //             0101 slt  0110 sltu 0111 sll  1000 srl  1001 sra
@@ -22,6 +25,8 @@ module alu (
     logic [31:0] sum;
     logic        lt;
     logic        ltu;
+    logic [31:0] y_and, y_or, y_xor;
+    logic [31:0] y_sll, y_srl, y_sra;
 
     // Subtract for sub, slt and sltu.
     assign sub   = (alucontrol == 4'b0001) | (alucontrol == 4'b0101) | (alucontrol == 4'b0110);
@@ -35,25 +40,21 @@ module alu (
         .cout(carry)
     );
 
+    logicunit lu (.a(a), .b(b), .y_and(y_and), .y_or(y_or), .y_xor(y_xor));
+
+    shifter sh (.a(a), .shamt(b[4:0]), .y_sll(y_sll), .y_srl(y_srl), .y_sra(y_sra));
+
     assign zero = (sum == 32'b0);
     assign neg  = sum[31];
     assign ovf  = (a[31] == b_eff[31]) & (sum[31] != a[31]);
     assign lt   = neg ^ ovf;
     assign ltu  = ~carry;
 
-    always_comb begin
-        case (alucontrol)
-            4'b0000: result = sum;
-            4'b0001: result = sum;
-            4'b0010: result = a & b;
-            4'b0011: result = a | b;
-            4'b0100: result = a ^ b;
-            4'b0101: result = {31'b0, lt};
-            4'b0110: result = {31'b0, ltu};
-            4'b0111: result = a << b[4:0];
-            4'b1000: result = a >> b[4:0];
-            4'b1001: result = $signed(a) >>> b[4:0];
-            default: result = 32'b0;
-        endcase
-    end
+    resultmux rm (
+        .alucontrol(alucontrol), .sum(sum),
+        .y_and(y_and), .y_or(y_or), .y_xor(y_xor),
+        .lt(lt), .ltu(ltu),
+        .y_sll(y_sll), .y_srl(y_srl), .y_sra(y_sra),
+        .result(result)
+    );
 endmodule

@@ -6,7 +6,9 @@
 #   - full_adder is excluded from ABC so it stays 2 XOR + 2 AND + 1 OR.
 
 read_verilog -sv -lib backend/rtl/regfile.sv backend/rtl/ram.sv
-read_verilog -sv backend/rtl/full_adder.sv backend/rtl/adder32.sv backend/rtl/alu.sv
+read_verilog -sv backend/rtl/full_adder.sv backend/rtl/adder32.sv
+read_verilog -sv backend/rtl/logicunit.sv backend/rtl/shifter.sv backend/rtl/resultmux.sv
+read_verilog -sv backend/rtl/alu.sv
 read_verilog -sv backend/rtl/maindec.sv backend/rtl/aludec.sv backend/rtl/branchunit.sv
 read_verilog -sv backend/rtl/controller.sv backend/rtl/extend.sv backend/rtl/lsu.sv
 read_verilog -sv backend/rtl/flopr.sv backend/rtl/mux2.sv backend/rtl/mux3.sv
