@@ -5,8 +5,9 @@ through every layer of abstraction: **C → RISC-V assembly → machine code →
 datapath → logic gates**. You can step through it cycle by cycle, and at each
 layer the values match what the real hardware would produce.
 
-> Status: **M0 and M1 done** (gate-level adder spike, software pipeline).
-> M2 (simulating the whole core) is next. See `PROMPT.md` for the brief.
+> Status: **M0, M1 and M2 done** (gate-level adder spike, software pipeline,
+> whole-core simulation). M3 (linked, steppable views) is next. See
+> `PROMPT.md` for the brief.
 
 ## Quick start
 
@@ -50,25 +51,39 @@ Artifacts:
 | `program.json` | C lines; asm lines `{addr, hex, text, function, c_line}` |
 | `sum.hex` | The whole 4 KiB RAM image, one little-endian word per line (`$readmemh`) |
 | `golden.json` | Spike commit log `{pc, insn, rd, rd_value}` from `_start` to the halt |
+| `trace.json` | Every net of the gate netlist in every cycle (as changes), plus what was verified |
 | `toolchain.json` | The version each tool reports |
 
 Gate counts (including submodules; register file and RAM count as 0):
 
 | Part | Module | Gates |
 |---|---|---|
-| Top level | `top` | 2191 (786 AND, 605 OR, 227 XOR, 70 NOT, 471 MUX, 32 DFF) |
+| Top level | `top` | 2169 |
 | Control unit | `controller` | 78 |
 | Main decoder | `maindec` | 39 |
 | ALU decoder | `aludec` | 25 |
-| Datapath | `datapath` | 2113 |
-| ALU | `alu` | 1197 (the barrel shifter is most of it) |
+| Datapath | `datapath` | 2091 |
+| ALU | `alu` | 1175 |
 | ALU adder | `adder32` | 160 = 32 x (2 XOR + 2 AND + 1 OR) |
+| ALU logic unit | `logicunit` | 96 |
+| ALU shifter | `shifter` | 398 |
+| ALU result mux | `resultmux` | 439 |
+
+`gate_counts.json` breaks every module down by gate type.
 
 **Compile flags:** `-march=rv32i -mabi=ilp32 -Og -g -nostdlib -ffreestanding`.
 The brief suggested `-O1`, but at `-O1` GCC computes the loop at compile time
 and `main` becomes `addi a0,zero,55; ret`, leaving nothing to visualize. `-Og`
 keeps the loop (`add a0,a0,a5` / `addi` / `bge`) with every instruction
 mapped to a C line, and Spike retires 57 instructions.
+
+**Whole-core simulation (M2):** the program runs on the synthesized gate
+netlist (Yosys `sim`) and, independently, on the SystemVerilog source (Icarus
+Verilog). `trace.json` is written only if, for all 57 cycles of `sum.c`:
+gate level and RTL agree on every signal they share (459, including every
+module port); no net is x or z; every instruction's PC, encoding and
+register write match Spike; x0 reads 0; and the core halts in the same cycle
+as Spike. The trace holds all 1,876 nets (6,059 bits), about 1 MB.
 
 **Rejected programs:** floats, `*` `/` `%`, `#include`, calls into libc or
 other undefined functions, images larger than RAM, and programs that do not

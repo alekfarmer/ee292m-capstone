@@ -14,11 +14,16 @@ def fetch(path: str) -> object:
 
 
 def main() -> int:
-    """Check the 5 + 3 adder case and the Spike result; return the exit status."""
+    """Check the adder, Spike and trace results; return the exit status."""
     view = fetch("/api/adder/5_plus_3")
     golden = fetch("/api/golden")
-    assert isinstance(view, dict) and isinstance(golden, dict)
+    trace = fetch("/api/trace")
+    if not (isinstance(view, dict) and isinstance(golden, dict) and isinstance(trace, dict)):
+        print("smoke: FAIL: unexpected response shape", file=sys.stderr)
+        return 1
     problems = []
+    if trace.get("cycles") != golden.get("retired"):
+        problems.append(f"trace has {trace.get('cycles')} cycles, Spike {golden.get('retired')}")
     if view.get("sum") != "0x00000008" or view.get("cout") != 0:
         problems.append(f"adder 5 + 3 gave sum={view.get('sum')} cout={view.get('cout')}")
     if "<svg" not in str(view.get("svg", "")):
@@ -31,7 +36,10 @@ def main() -> int:
     for p in problems:
         print(f"smoke: FAIL: {p}", file=sys.stderr)
     if not problems:
-        print("smoke: ok (5 + 3 = 0x00000008 on the gates, a0 = 55 in Spike, page served)")
+        print(
+            "smoke: ok (5 + 3 = 0x00000008 on the gates, a0 = 55 in Spike, "
+            f"{trace['cycles']}-cycle trace, page served)"
+        )
     return 1 if problems else 0
 
 
