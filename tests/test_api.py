@@ -45,7 +45,7 @@ def test_gate_counts_and_program_served() -> None:
 def test_page_is_served() -> None:
     resp = client.get("/")
     assert resp.status_code == 200
-    assert "<title>Adder Gates</title>" in resp.text
+    assert "<title>C to Gates</title>" in resp.text
 
 
 def test_cycle_and_view_endpoints() -> None:
