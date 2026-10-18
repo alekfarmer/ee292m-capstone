@@ -61,14 +61,18 @@ RUN git checkout "${SPIKE_COMMIT}" \
 
 # --------------------------------------------------------------------------
 FROM ${PYTHON_BASE} AS final
-# Debian trixie package versions are pinned exactly. iverilog's binary
-# rebuild suffix differs by architecture (+b1 amd64, +b2 arm64), so it is
-# pinned to the source version 12.0-2.
+# Debian trixie package versions are pinned exactly, with two exceptions:
+#   iverilog: the binary rebuild suffix differs by architecture (+b1 amd64,
+#     +b2 arm64), so it is pinned to the source version 12.0-2.
+#   chromium-headless-shell (page checks in `make smoke` / `make screenshot`
+#     only, never used by the app): Debian ships Chromium through security
+#     updates that replace old versions, so it is pinned to its major version.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       gcc-riscv64-unknown-elf=14.2.0+19 \
       binutils-riscv64-unknown-elf=2.44-3+7+b1 \
       'iverilog=12.0-2*' \
+      'chromium-headless-shell=155.*' fonts-dejavu-core \
       device-tree-compiler \
       libreadline8t64 libtcl8.6 libffi8 zlib1g \
  && rm -rf /var/lib/apt/lists/*
