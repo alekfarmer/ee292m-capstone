@@ -6,8 +6,8 @@ changes. The rules that apply to every task are in AGENTS.md.
 
 ## Current state
 
-M0 (gate-level spike), M1 (software pipeline) and M2 (whole-core
-simulation) are built:
+M0 (gate-level spike), M1 (software pipeline), M2 (whole-core
+simulation) and M3 (linked, steppable views) are built:
 
 - `backend/rtl/` is a single-cycle RV32I core in SystemVerilog (MIT, see
   `docs/core-choice.md`); `synth.ys` synthesizes it with Yosys, keeping
@@ -16,11 +16,12 @@ simulation) are built:
 - `make artifacts` regenerates everything in `backend/artifacts/`, which is
   committed: `netlist.json`, `gate_counts.json`, `adder_values.json`,
   `program.json`, `sum.hex`, `golden.json`, `trace.json`, `toolchain.json`.
-- The API serves those artifacts; the page (`src/web/`) draws the ALU's
-  32-bit adder at gate level for 5 + 3 and 0xFFFFFFFF + 1.
+- The API serves those artifacts and builds per-cycle views from them; the
+  page (`src/web/`) shows C, assembly, machine code and the hardware (opening
+  on the datapath) for any cycle, with stepping by cycle or by C line.
 
-Not built yet: the linked, steppable views (M3) and gate-level drill-down
-into every module (M4).
+Not built yet: gate-level views of the large modules (M4): the ALU shifter
+and result mux, the load/store unit, the PC adders, and the ALU's glue logic.
 
 ## Stack
 
@@ -30,9 +31,12 @@ into every module (M4).
   contract.
 - Frontend: static HTML and JavaScript, with no build step for our own code.
   It uses whichever library suits the view (Plotly for plots, D3 for custom
-  charts, three.js for 3D); the plan names it and says why. M0 uses none:
-  the backend renders the adder as plain SVG (`src/app/render.py`), so
-  `docker/package.json` has no dependencies yet.
+  charts, three.js for 3D); the plan names it and says why. The page uses
+  elkjs (`docker/package.json`) to place boxes and route wires for views
+  generated from the netlist; it never computes a value. The adder's
+  textbook drawing is SVG rendered by the backend (`src/app/render.py`).
+- Headless Chromium (Debian `chromium-headless-shell`, major version pinned)
+  is in the image only for `make smoke` and `make screenshot`.
 - Hardware and software tools, all pinned in `docker/Dockerfile`: Yosys
   (built from a release tag), Spike (built from a commit), and Debian's
   `gcc-riscv64-unknown-elf`, `binutils-riscv64-unknown-elf` and `iverilog`
@@ -59,9 +63,12 @@ src/app/             the backend: api.py (routes only), pipeline.py (entry
                      points), models.py, and the steps they call:
                      software.py (gcc, objdump, Spike), hardware.py (Yosys),
                      simulate.py (whole-core runs and checks), vcd.py,
-                     render.py (SVG), tools.py, errors.py, paths.py,
+                     decode.py (instruction fields), views.py (per-cycle and
+                     module views), render.py (adder SVG), tools.py,
+                     errors.py, paths.py, pagecheck.py (headless Chromium),
                      cli.py (`make artifacts`), smoke.py (`make smoke`)
-src/web/             the page: index.html, app.js, styles.css
+src/web/             the page: index.html, app.js (panes, stepping),
+                     graph.js (elk layout and drawing), styles.css
 tests/               pytest
 docs/                decisions worth remembering, one short file each
 data/                only when the project has data: raw/ is never modified,
@@ -93,6 +100,12 @@ Makefile  README.md  ARCHITECTURE.md  AGENTS.md  CLAUDE.md
   message (file and line where known). Checks: the preprocessed source
   (no float/double, no `*` `/` `%`), the linker (undefined libc symbols,
   RAM overflow) and Spike (no halt within 500 retired instructions).
+- Views: `views.py` turns any module of the netlist into a graph (its
+  ports, blocks or gates, constants, and the wires between them, each wire
+  naming its trace signal and bit range) with values for one cycle. Modules
+  made only of gates get one pin per bus bit; a block view with more than 40
+  loose gates groups them into one "glue logic" node. Which modules open, and
+  how, is set by `GATE_MODULES` and `BLOCK_ONLY` there.
 - Programs compile with `-march=rv32i -mabi=ilp32 -Og -g -nostdlib
   -ffreestanding` (`-O1` folds `sum.c` to a constant; see README).
 - Halt convention: `crt0.S` stores `(a0 << 1) | 1` to `tohost`. Spike exits
@@ -146,6 +159,8 @@ While developing:
 - `preview`: write the adder drawings to `backend/build/preview/` (to look
   at the SVG outside the app). `synth-log`: run synthesis alone with the
   full Yosys log in `backend/build/synth.log`.
+- `screenshot`: start the app and save screenshots of a few views to
+  `backend/build/screenshots/` (headless Chromium in the container).
 - `test`: run the tests (`ARGS=...` is passed to pytest). `lint`: check the code, changing nothing. `fmt`:
   rewrite the code into the standard format.
 - `smoke`: start the app, check a real API result (not just a status code),

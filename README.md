@@ -5,9 +5,9 @@ through every layer of abstraction: **C → RISC-V assembly → machine code →
 datapath → logic gates**. You can step through it cycle by cycle, and at each
 layer the values match what the real hardware would produce.
 
-> Status: **M0, M1 and M2 done** (gate-level adder spike, software pipeline,
-> whole-core simulation). M3 (linked, steppable views) is next. See
-> `PROMPT.md` for the brief.
+> Status: **M0–M3 done** (gate-level adder spike, software pipeline,
+> whole-core simulation, linked steppable views). M4 (gate-level views of
+> every module) is next. See `PROMPT.md` for the brief.
 
 ## Quick start
 
@@ -22,9 +22,23 @@ make verify     # the gate: build, lint, tests, smoke check
 make help       # every target
 ```
 
-The page shows the ALU's 32-bit ripple-carry adder at gate level, with the
-real values on every wire for `5 + 3` and `0xFFFFFFFF + 1`. Hover a wire for
-its name and value.
+The page follows `sum.c` cycle by cycle:
+
+- **C source** and **assembly**, linked: the running line and instruction are
+  highlighted; click a C line to highlight its instructions, or the reverse.
+- **Machine code**: the current instruction's fields (opcode, rd, rs1, ...)
+  with their bits and meaning, and the register it writes.
+- **Hardware**: opens on the datapath, generated from the synthesized netlist,
+  with every wire's value in this cycle (buses show their value; 1-bit wires
+  are coloured 1/0; wires that changed are highlighted). Click a block marked
+  ⤢ to open it: the ALU into its blocks, the ALU adder into its 160 gates
+  (textbook layout), and the decoders, muxes, PC register and immediate
+  decoder into their gates. Hover any wire for its name and value.
+- **Stepping**: by cycle or by C line, a slider, play (1–5 cycles a second),
+  and keys (← → cycle, ↑ ↓ C line, Home/End, space = play). The URL keeps the
+  cycle and view, e.g. `#cycle=11&view=top.rv.dp.alu`.
+
+`make screenshot` saves pictures of a few views to `backend/build/screenshots/`.
 
 `make artifacts` regenerates everything in `backend/artifacts/` from the
 sources; the generated files are committed, and the tests fail if they are
@@ -84,6 +98,15 @@ gate level and RTL agree on every signal they share (459, including every
 module port); no net is x or z; every instruction's PC, encoding and
 register write match Spike; x0 reads 0; and the core halts in the same cycle
 as Spike. The trace holds all 1,876 nets (6,059 bits), about 1 MB.
+
+**Views (M3):** the backend builds every view (`/api/cycle/{n}`,
+`/api/view/{path}?cycle=n`) from the netlist and the verified trace, including
+the value of each partial bus such as `instr[19:15]`; the page only lays them
+out (elkjs) and draws. Tests check that every wire of every view carries the
+trace's value and that every input of every block is drawn connected; the
+smoke check loads the real page in headless Chromium and reads a drawn wire.
+Shown as blocks only until M4: the ALU shifter and result mux, the load/store
+unit, the PC adders, and the ALU's 82 gates of glue logic.
 
 **Rejected programs:** floats, `*` `/` `%`, `#include`, calls into libc or
 other undefined functions, images larger than RAM, and programs that do not
