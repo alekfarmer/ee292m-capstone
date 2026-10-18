@@ -255,12 +255,24 @@ def _build_nodes(
 ) -> list[_Node]:
     modules = netlist["modules"]
     mod = modules[module]
+    cells = mod.get("cells", {})
+    pure_gates = all(c["type"] in GATE_PORTS for c in cells.values())
+    # In a module made only of gates, every bit is wired separately, so each
+    # bit of a bus port gets its own labelled pin (op[0], op[1], ...).
+    split = pure_gates and bool(cells)
     nodes: list[_Node] = []
     for name, port in mod["ports"].items():
-        if port["direction"] == "input":
-            nodes.append(_Node(f"in:{name}", "port_in", name, [_Port("y", "out", port["bits"])]))
-        else:
-            nodes.append(_Node(f"out:{name}", "port_out", name, [_Port("a", "in", port["bits"])]))
+        bits = port["bits"]
+        pieces = (
+            [(f"{name}[{i}]", [b]) for i, b in enumerate(bits)]
+            if split and len(bits) > 1
+            else [(name, bits)]
+        )
+        for label, piece in pieces:
+            if port["direction"] == "input":
+                nodes.append(_Node(f"in:{label}", "port_in", label, [_Port("y", "out", piece)]))
+            else:
+                nodes.append(_Node(f"out:{label}", "port_out", label, [_Port("a", "in", piece)]))
 
     gates: list[tuple[str, dict[str, Any]]] = []
     for raw_name, cell in mod.get("cells", {}).items():
