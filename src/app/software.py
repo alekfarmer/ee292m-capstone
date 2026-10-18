@@ -12,8 +12,9 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.decode import decode
 from app.errors import ProgramRejectedError, ToolError
-from app.models import AsmLine, GoldenArtifact, GoldenEntry
+from app.models import AsmLine, GoldenArtifact, GoldenEntry, InstructionField
 from app.paths import CRT0, LINKER_SCRIPT
 from app.tools import run_tool
 
@@ -239,13 +240,24 @@ def disassemble(program: CompiledProgram) -> list[AsmLine]:
             continue
         if m := _INSN.match(raw):
             addr = int(m.group(1), 16)
+            word = int(m.group(2), 16)
+            dec = decode(word)
             lines.append(
                 AsmLine(
                     addr=f"0x{addr:08x}",
-                    hex=f"0x{int(m.group(2), 16):08x}",
+                    hex=f"0x{word:08x}",
                     text=normalize_asm(m.group(3), m.group(4)),
                     function=function,
                     c_line=c_line,
+                    format=dec.format,
+                    opcode_name=dec.opcode_name,
+                    fields=[
+                        InstructionField(
+                            name=f.name, hi=f.hi, lo=f.lo, bits=f.bits, meaning=f.meaning
+                        )
+                        for f in dec.fields
+                    ],
+                    immediate=dec.immediate,
                 )
             )
     if not lines:
