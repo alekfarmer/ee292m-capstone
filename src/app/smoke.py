@@ -4,6 +4,8 @@ import json
 import sys
 import urllib.request
 
+from app.pagecheck import check_rendered_page
+
 BASE = "http://127.0.0.1:8000"
 
 
@@ -33,12 +35,13 @@ def main() -> int:
     with urllib.request.urlopen(BASE + "/", timeout=10) as resp:  # noqa: S310 - fixed URL
         if b"<title>" not in resp.read():
             problems.append("page did not load")
+    problems.extend(check_rendered_page())
     for p in problems:
         print(f"smoke: FAIL: {p}", file=sys.stderr)
     if not problems:
         print(
             "smoke: ok (5 + 3 = 0x00000008 on the gates, a0 = 55 in Spike, "
-            f"{trace['cycles']}-cycle trace, page served)"
+            f"{trace['cycles']}-cycle trace, page renders the datapath with pc = 0x80000000)"
         )
     return 1 if problems else 0
 
