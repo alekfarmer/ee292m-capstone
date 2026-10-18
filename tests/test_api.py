@@ -46,3 +46,20 @@ def test_page_is_served() -> None:
     resp = client.get("/")
     assert resp.status_code == 200
     assert "<title>Adder Gates</title>" in resp.text
+
+
+def test_cycle_and_view_endpoints() -> None:
+    cv = client.get("/api/cycle/0").json()
+    assert cv["pc"] == "0x80000000" and cv["cycle"] == 0
+    view = client.get("/api/view/top.rv.dp", params={"cycle": 0}).json()
+    assert view["module"] == "datapath" and view["kind"] == "blocks"
+    pc = next(e for e in view["edges"] if e["target"] == "out:pc")
+    assert pc["value"] == "0x80000000"
+
+
+def test_view_inputs_are_validated() -> None:
+    assert client.get("/api/view/top.nope").status_code == 404
+    assert client.get("/api/view/../etc").status_code in (404, 422)
+    assert client.get("/api/view/top.rv.dp", params={"cycle": -1}).status_code == 422
+    assert client.get("/api/view/top.rv.dp", params={"cycle": 9999}).status_code == 404
+    assert client.get("/api/cycle/9999").status_code == 404

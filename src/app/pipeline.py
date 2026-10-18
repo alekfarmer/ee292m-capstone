@@ -16,14 +16,16 @@ from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
-from app import hardware, render, simulate, software
+from app import hardware, render, simulate, software, views
 from app.errors import ArtifactMissingError, PipelineError
 from app.models import (
     AdderCaseInfo,
     AdderValuesArtifact,
     AdderView,
+    CycleView,
     GateCountReport,
     GoldenArtifact,
+    ModuleView,
     ProgramArtifact,
     SourceLine,
     TraceArtifact,
@@ -300,3 +302,31 @@ def get_adder_view(case_id: str, art_dir: Path = ARTIFACTS_DIR) -> AdderView:
         gate_count=adder_total,
         svg=render.adder_svg(netlist, case),
     )
+
+
+def get_cycle_view(n: int, art_dir: Path = ARTIFACTS_DIR) -> CycleView:
+    """GET /api/cycle/{n}: what runs in cycle ``n`` and where line-stepping goes.
+
+    Raises:
+        KeyError: ``n`` is outside the trace.
+    """
+    index = views.trace_index(_artifact(TRACE_FILE, art_dir))
+    return views.cycle_view(n, get_program(art_dir), get_golden(art_dir), index)
+
+
+def get_module_view(path: str, cycle: int, art_dir: Path = ARTIFACTS_DIR) -> ModuleView:
+    """GET /api/view/{path}?cycle=n: one module with every wire's value in that cycle.
+
+    Raises:
+        KeyError: no such instance path, or ``cycle`` is outside the trace.
+    """
+    netlist = hardware.load_netlist(_artifact(NETLIST_FILE, art_dir))
+    index = views.trace_index(_artifact(TRACE_FILE, art_dir))
+    return views.module_view(netlist, path, cycle, index, get_gate_counts(art_dir))
+
+
+def _artifact(name: str, art_dir: Path) -> Path:
+    path = art_dir / name
+    if not path.exists():
+        raise ArtifactMissingError(f"{name} has not been generated yet; run 'make artifacts'")
+    return path

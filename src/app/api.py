@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Path
+from fastapi import FastAPI, HTTPException, Path, Query
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
@@ -12,9 +12,11 @@ from app.errors import ArtifactMissingError, PipelineError
 from app.models import (
     AdderCaseInfo,
     AdderView,
+    CycleView,
     GateCountReport,
     GoldenArtifact,
     Health,
+    ModuleView,
     ProgramArtifact,
     TraceArtifact,
 )
@@ -26,6 +28,14 @@ app = FastAPI(
     version="0.1.0",
 )
 
+ViewPath = Annotated[
+    str,
+    Path(
+        pattern=r"^top(\.[A-Za-z_][A-Za-z0-9_]*){0,8}$",
+        description="instance path, e.g. 'top.rv.dp' (the datapath)",
+    ),
+]
+CycleNo = Annotated[int, Query(ge=0, le=100_000, description="cycle number, 0 = first instruction")]
 CaseId = Annotated[str, Path(pattern=r"^[a-z0-9_]{1,64}$", description="adder case id")]
 
 
@@ -61,6 +71,26 @@ def golden() -> GoldenArtifact:
 def trace() -> TraceArtifact:
     """Every net's value in every cycle of the gate-level run (M2)."""
     return pipeline.get_trace()
+
+
+@app.get("/api/cycle/{n}")
+def cycle(n: Annotated[int, Path(ge=0, le=100_000)]) -> CycleView:
+    """What runs in cycle n, its register write, and the C-line step targets (M3)."""
+    try:
+        return pipeline.get_cycle_view(n)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"no cycle {n} in the trace") from None
+
+
+@app.get("/api/view/{path}")
+def module_view(path: ViewPath, cycle: CycleNo = 0) -> ModuleView:
+    """One module (blocks or gates) with every wire's value in a cycle (M3)."""
+    try:
+        return pipeline.get_module_view(path, cycle)
+    except KeyError:
+        raise HTTPException(
+            status_code=404, detail=f"no instance '{path}' or no cycle {cycle}"
+        ) from None
 
 
 @app.get("/api/gate-counts")
