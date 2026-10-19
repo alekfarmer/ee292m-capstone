@@ -10,7 +10,7 @@ Makefile, inside the container.
 ## Timeline
 
 | Date | What happened |
-|---|---|
+| --- | --- |
 | 2026-10-11 | Starting point on `main`: README (plan and milestones), AGENTS.md, ARCHITECTURE.md, PROMPT.md |
 | 2026-10-14 | Peer review of the plan by Logan Russo (lrusso3), merged as PR #1 |
 | 2026-10-14 | Core choice, tool pins and plan agreed; M0 and M1 built, tested and committed on `m0-m1` |
@@ -34,12 +34,13 @@ Makefile, inside the container.
 - **Pinned tools** (in `docker/Dockerfile`, recorded in `backend/artifacts/toolchain.json`):
 
   | Tool | Pin |
-  |---|---|
+  | --- | --- |
   | Yosys | 0.68, built from tag |
   | Spike | commit `f8a060b`, built from source |
   | RISC-V GCC | 14.2.0+19 (Debian trixie) |
   | binutils | 2.44-3+7+b1 (Debian trixie) |
   | Python | 3.14 |
+
 - **`-Og` instead of `-O1`.** At `-O1` GCC computes the loop at compile time and
   `main` becomes `addi a0,zero,55; ret`, leaving nothing to visualize. `-Og`
   keeps the loop, with every instruction mapped to a C line (57 instructions
