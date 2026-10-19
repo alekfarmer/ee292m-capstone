@@ -71,6 +71,7 @@ src/web/             the page: index.html, app.js (panes, stepping),
                      graph.js (elk layout and drawing), styles.css
 tests/               pytest
 docs/                decisions worth remembering, one short file each
+feedback/            peer reviews, merged from review pull requests; never edited
 data/                only when the project has data: raw/ is never modified,
                      processed/ is gitignored
 Makefile  README.md  ARCHITECTURE.md  AGENTS.md  CLAUDE.md
