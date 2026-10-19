@@ -1,0 +1,32 @@
+# Synthesize the core to {AND, OR, XOR, NOT, MUX, DFF}, keeping hierarchy.
+# Run from the repository root (the pipeline does this): paths are relative.
+#
+#   - No flatten: every module stays a module.
+#   - regfile and ram are read with -lib, so they are black boxes.
+#   - full_adder is excluded from ABC so it stays 2 XOR + 2 AND + 1 OR.
+
+read_verilog -sv -lib backend/rtl/regfile.sv backend/rtl/ram.sv
+read_verilog -sv backend/rtl/full_adder.sv backend/rtl/adder32.sv backend/rtl/alu.sv
+read_verilog -sv backend/rtl/maindec.sv backend/rtl/aludec.sv backend/rtl/branchunit.sv
+read_verilog -sv backend/rtl/controller.sv backend/rtl/extend.sv backend/rtl/lsu.sv
+read_verilog -sv backend/rtl/flopr.sv backend/rtl/mux2.sv backend/rtl/mux3.sv
+read_verilog -sv backend/rtl/adder.sv backend/rtl/datapath.sv backend/rtl/riscvsingle.sv
+read_verilog -sv backend/rtl/top.sv
+
+hierarchy -check -top top
+proc
+opt_expr
+opt_clean
+check -assert
+opt -nodffe -nosdff
+wreduce
+alumacc
+opt -nodffe -nosdff
+techmap
+opt -fast -nodffe -nosdff
+dfflegalize -cell $_DFF_P_ x
+abc -g AND,OR,XOR,MUX * full_adder %d
+opt_clean
+hierarchy -check
+check -assert
+stat

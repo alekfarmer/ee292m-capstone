@@ -1,0 +1,46 @@
+# One development container. The Makefile sets COMPOSE_PROJECT_NAME,
+# HOST_UID and HOST_GID; run everything through `make`.
+services:
+  app:
+    build:
+      context: .
+      target: final
+    image: ${COMPOSE_PROJECT_NAME}-app
+    user: "${HOST_UID}:${HOST_GID}"
+    environment:
+      HOME: /tmp
+    volumes:
+      - ..:/work
+    ports:
+      - "127.0.0.1:${APP_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2)"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # Tool stages used only by `make lock`.
+  uv-tool:
+    profiles: ["tools"]
+    build:
+      context: .
+      target: uv-tool
+    image: ${COMPOSE_PROJECT_NAME}-uv-tool
+    user: "${HOST_UID}:${HOST_GID}"
+    environment:
+      HOME: /tmp
+      UV_PYTHON_DOWNLOADS: never
+    volumes:
+      - .:/lock
+
+  node-tool:
+    profiles: ["tools"]
+    build:
+      context: .
+      target: node-tool
+    image: ${COMPOSE_PROJECT_NAME}-node-tool
+    user: "${HOST_UID}:${HOST_GID}"
+    environment:
+      HOME: /tmp
+    volumes:
+      - .:/lock

@@ -1,0 +1,108 @@
+:root {
+  --bg: #fbfaf7;
+  --fg: #1d1d1b;
+  --muted: #6b6a66;
+  --panel: #ffffff;
+  --line: #d9d6cf;
+  --one: #d9480f;
+  --zero: #8a97a8;
+  --gate: #ffffff;
+  --gate-line: #2d2d2a;
+  --error-bg: #fde8e8;
+  --error-fg: #8a1c1c;
+  --accent: #1c5d99;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615;
+    --fg: #ecebe7;
+    --muted: #a3a29d;
+    --panel: #1f1f1d;
+    --line: #3a3936;
+    --one: #ff8a4c;
+    --zero: #5d6877;
+    --gate: #262624;
+    --gate-line: #dcdbd6;
+    --error-bg: #3b1717;
+    --error-fg: #ffb4b4;
+    --accent: #7ab3ea;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --fg: #ecebe7;
+  --muted: #a3a29d;
+  --panel: #1f1f1d;
+  --line: #3a3936;
+  --one: #ff8a4c;
+  --zero: #5d6877;
+  --gate: #262624;
+  --gate-line: #dcdbd6;
+  --error-bg: #3b1717;
+  --error-fg: #ffb4b4;
+  --accent: #7ab3ea;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+header, main { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+header { padding-top: 24px; }
+h1 { font-size: 1.6rem; margin: 0 0 8px; }
+h2 { font-size: 1.15rem; margin: 32px 0 4px; }
+.lede, .note { color: var(--muted); max-width: 70ch; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: center; margin: 16px 0; }
+.cases { display: flex; gap: 8px; flex-wrap: wrap; }
+.cases button {
+  font: inherit; padding: 6px 14px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--fg);
+}
+.cases button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+.readout { display: grid; grid-template-columns: repeat(6, auto); gap: 0 12px; margin: 0; font-variant-numeric: tabular-nums; }
+.readout dt { color: var(--muted); font-size: 0.8rem; grid-row: 1; }
+.readout dd { margin: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; grid-row: 2; }
+
+.error { background: var(--error-bg); color: var(--error-fg); padding: 10px 14px; border-radius: 6px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 20px; color: var(--muted); font-size: 0.9rem; margin-bottom: 8px; }
+.swatch { display: inline-block; width: 22px; height: 4px; vertical-align: middle; border-radius: 2px; }
+.swatch.v1 { background: var(--one); }
+.swatch.v0 { background: var(--zero); }
+
+.drawing { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.drawing svg { display: block; }
+
+svg.adder .tile-frame { fill: none; stroke: var(--line); }
+svg.adder .wire { fill: none; stroke-width: 2; stroke-linejoin: round; }
+svg.adder .wire.v1 { stroke: var(--one); stroke-width: 2.5; }
+svg.adder .wire.v0 { stroke: var(--zero); }
+svg.adder .junction.v1 { fill: var(--one); }
+svg.adder .junction.v0 { fill: var(--zero); }
+svg.adder .gate-body { fill: var(--gate); stroke: var(--gate-line); stroke-width: 1.5; }
+svg.adder .gate-line { fill: none; stroke: var(--gate-line); stroke-width: 1.5; }
+svg.adder text { fill: var(--fg); font: 11px ui-monospace, "SF Mono", Menlo, monospace; text-anchor: middle; }
+svg.adder .gate-label { font-size: 8px; fill: var(--muted); }
+svg.adder .net-label { text-anchor: start; fill: var(--muted); }
+svg.adder .bit-label { fill: var(--muted); }
+svg.adder .port-label { text-anchor: start; }
+svg.adder .port-label.end { text-anchor: end; }
+
+.counts { border-collapse: collapse; margin: 8px 0 48px; font-variant-numeric: tabular-nums; }
+.counts th, .counts td { text-align: left; padding: 4px 16px 4px 0; border-bottom: 1px solid var(--line); }
+.counts td:last-child, .counts th:last-child { text-align: right; }
+.counts td:nth-child(2) { font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); }
+
+@media (max-width: 600px) {
+  .readout { grid-template-columns: repeat(3, auto); }
+  .readout dt, .readout dd { grid-row: auto; }
+}

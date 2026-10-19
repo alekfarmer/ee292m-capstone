@@ -1,0 +1,8 @@
+{
+  "python": "3.14.8",
+  "gcc": "riscv64-unknown-elf-gcc (14.2.0+19) 14.2.0",
+  "binutils": "GNU objdump (2.44-3+7+b1) 2.44",
+  "yosys": "Yosys 0.68 (git sha1 38e001a6f, Release, GNU /usr/bin/c++ 14.2.0)",
+  "spike": "1.1.1-dev",
+  "spike_commit": "f8a060b7bea8da6f738f193ed1b66b665978d092"
+}

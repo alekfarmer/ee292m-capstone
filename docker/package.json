@@ -1,0 +1,7 @@
+{
+  "name": "c-to-gates-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend libraries (none needed yet: the M0 page is plain SVG and JavaScript)",
+  "dependencies": {}
+}

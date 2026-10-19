@@ -1,0 +1,184 @@
+{
+  "source_file": "sum.c",
+  "c_lines": [
+    {
+      "line": 1,
+      "text": "int main(void) {"
+    },
+    {
+      "line": 2,
+      "text": "    int sum = 0;"
+    },
+    {
+      "line": 3,
+      "text": "    for (int i = 1; i <= 10; i++)"
+    },
+    {
+      "line": 4,
+      "text": "        sum += i;"
+    },
+    {
+      "line": 5,
+      "text": "    return sum;   // expected: 55 in a0"
+    },
+    {
+      "line": 6,
+      "text": "}"
+    }
+  ],
+  "asm": [
+    {
+      "addr": "0x80000000",
+      "hex": "0x00001117",
+      "text": "auipc sp,0x1",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x80000004",
+      "hex": "0x00010113",
+      "text": "addi sp,sp,0 # 80001000 <__stack_top>",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x80000008",
+      "hex": "0x00000293",
+      "text": "addi t0,zero,0",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x8000000c",
+      "hex": "0x00000513",
+      "text": "addi a0,zero,0",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x80000010",
+      "hex": "0x00000593",
+      "text": "addi a1,zero,0",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x80000014",
+      "hex": "0x01c000ef",
+      "text": "jal ra,80000030 <main>",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x80000018",
+      "hex": "0x00151313",
+      "text": "slli t1,a0,0x1",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x8000001c",
+      "hex": "0x00136313",
+      "text": "ori t1,t1,1",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x80000020",
+      "hex": "0x00000297",
+      "text": "auipc t0,0x0",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x80000024",
+      "hex": "0x03028293",
+      "text": "addi t0,t0,48 # 80000050 <tohost>",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x80000028",
+      "hex": "0x0062a023",
+      "text": "sw t1,0(t0)",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x8000002c",
+      "hex": "0x0000006f",
+      "text": "jal zero,8000002c <_start+0x2c>",
+      "function": "_start",
+      "c_line": null
+    },
+    {
+      "addr": "0x80000030",
+      "hex": "0x00100793",
+      "text": "addi a5,zero,1",
+      "function": "main",
+      "c_line": 3
+    },
+    {
+      "addr": "0x80000034",
+      "hex": "0x00000513",
+      "text": "addi a0,zero,0",
+      "function": "main",
+      "c_line": 2
+    },
+    {
+      "addr": "0x80000038",
+      "hex": "0x00c0006f",
+      "text": "jal zero,80000044 <main+0x14>",
+      "function": "main",
+      "c_line": 3
+    },
+    {
+      "addr": "0x8000003c",
+      "hex": "0x00f50533",
+      "text": "add a0,a0,a5",
+      "function": "main",
+      "c_line": 4
+    },
+    {
+      "addr": "0x80000040",
+      "hex": "0x00178793",
+      "text": "addi a5,a5,1",
+      "function": "main",
+      "c_line": 3
+    },
+    {
+      "addr": "0x80000044",
+      "hex": "0x00a00713",
+      "text": "addi a4,zero,10",
+      "function": "main",
+      "c_line": 3
+    },
+    {
+      "addr": "0x80000048",
+      "hex": "0xfef75ae3",
+      "text": "bge a4,a5,8000003c <main+0xc>",
+      "function": "main",
+      "c_line": 3
+    },
+    {
+      "addr": "0x8000004c",
+      "hex": "0x00008067",
+      "text": "jalr zero,0(ra)",
+      "function": "main",
+      "c_line": 6
+    }
+  ],
+  "compile_flags": [
+    "-march=rv32i",
+    "-mabi=ilp32",
+    "-Og",
+    "-g",
+    "-nostdlib",
+    "-ffreestanding"
+  ],
+  "ram_base": "0x80000000",
+  "ram_size_bytes": 4096,
+  "entry": "0x80000000",
+  "tohost": "0x80000050",
+  "image_file": "sum.hex"
+}

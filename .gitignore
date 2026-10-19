@@ -32,3 +32,6 @@ data/processed/**
 # Secrets and local overrides
 .env
 docker/compose.override.yaml
+
+# Scratch output of the pipelines (artifacts/ is committed)
+backend/build/

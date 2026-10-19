@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adder Gates</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>The ALU's adder, gate by gate</h1>
+    <p class="lede">
+      The 32-bit ripple-carry adder inside the RV32I core's ALU, after synthesis
+      with Yosys. Every gate below is a cell in the synthesized netlist, and every
+      wire's value comes from Yosys simulating that netlist. Bit 0 (the LSB) is on
+      the right; the carry ripples right to left.
+    </p>
+  </header>
+
+  <main>
+    <section class="controls" aria-label="Input case">
+      <div id="cases" class="cases" role="group" aria-label="Choose inputs"></div>
+      <dl id="readout" class="readout"></dl>
+    </section>
+
+    <p id="error" class="error" role="alert" hidden></p>
+
+    <section class="legend" aria-label="Legend">
+      <span><i class="swatch v1"></i> wire = 1</span>
+      <span><i class="swatch v0"></i> wire = 0</span>
+      <span>p = a XOR b (propagate), g = a AND b (generate), t = p AND cin</span>
+    </section>
+
+    <div id="drawing" class="drawing" tabindex="0" aria-label="Adder drawing; scroll sideways"></div>
+
+    <section aria-labelledby="counts-title">
+      <h2 id="counts-title">Gate counts of the whole core</h2>
+      <p class="note">Including submodules. Register file and RAM are black boxes (0 gates).</p>
+      <table id="counts" class="counts"></table>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
