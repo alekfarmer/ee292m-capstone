@@ -90,6 +90,14 @@ other undefined functions, images larger than RAM, and programs that do not
 halt within 500 instructions each give one clear error (see
 `tests/test_rejections.py`).
 
+## Review feedback
+
+Peer reviews arrive as pull requests into `feedback/` and are merged there.
+Accepted findings are built in; each finding pushed back on gets one line
+below, with the reason.
+
+- Broader inputs (lrusso3, PR #1): deferred to M5, because every displayed bit must first be verified for one fixed program (M2–M4); the M1 pipeline already accepts any C file in the supported subset and rejects the rest with a clear error.
+
 ## Why this is worth doing
 
 Students learn each layer in a different course: C in intro programming,
@@ -108,7 +116,7 @@ The goal is that a viewer can click the `+` in `sum += i`, follow it to the
 `add` instruction, then to the ALU, then to the full adder computing bit 3,
 and see the actual 0s and 1s at that cycle.
 
-**Audience:** Students interesteded in the whole stack from SW to HW.
+**Audience:** Students interested in the whole stack from SW to HW.
 
 **What they decide or learn:** Learn how a processor is implemented with a visual representation.
 

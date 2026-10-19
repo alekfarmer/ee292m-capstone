@@ -6,7 +6,7 @@ Follow AGENTS.md. Read `README.md` for the architecture and milestones. This pro
 
 I am building a browser-based visualization that follows one C program from
 source to RISC-V assembly to machine code to a running processor datapath, and
-down to logic gates, with real values at every cycle. Users: Students interesteded in the whole stack from SW to HW. So **correctness of every displayed bit matters more than visual
+down to logic gates, with real values at every cycle. Users: Students interested in the whole stack from SW to HW. So **correctness of every displayed bit matters more than visual
 polish.**
 
 ## 2) Scope
