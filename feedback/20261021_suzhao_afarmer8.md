@@ -48,4 +48,4 @@ Smaller: the README's architecture diagram has the page "load artifacts", but it
 
 ## What Alek decided
 
-_To be filled in after we talk._
+By email on 20 October, Alek accepted both points: he will move the audience line to the top of the README, and give each program its own artifacts so the code is not tied to one program.
