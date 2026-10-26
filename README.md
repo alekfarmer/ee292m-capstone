@@ -9,6 +9,11 @@ layer the values match what the real hardware would produce.
 hardware, who want to see how a processor is implemented, layer by layer, with
 a visual representation.
 
+**In plain terms:** a computer runs a program by switching tiny on/off
+circuits called logic gates. This tool lets you watch one small program (adding
+the numbers 1 to 10) do exactly that, one step at a time, from the code a person
+writes all the way down to the individual gates.
+
 ## Why this is worth doing
 
 Students learn each layer in a different course: C in intro programming,
@@ -152,6 +157,7 @@ pushed back on):
 - Artifact names assumed one program (suzhao, PR #3): each program's artifacts now live in their own folder (`backend/artifacts/sum/`), the API takes `?program=`, and a test builds a second program next to `sum`.
 - The diagram showed the page loading artifacts (suzhao, PR #3): it now shows the page asking the API.
 - The adder's `t` gate was hard to read (lrusso3, PR #4): the `g` wire ran through it, making it look like a three-input gate; it now goes round, and a test fails if any wire crosses a gate.
+- No statement for readers outside the field (lrusso3, PR #4): the README now opens with a plain-language sentence, and the page's first screen says who it is for.
 
 Answers to the reviewers' questions (suzhao, PR #3):
 
@@ -202,6 +208,61 @@ the first slice limits the program to under 500 cycles.
 
 *Future note:* supporting user-entered C (M5) adds a compile+simulate service
 on the backend. The boundary does not move: the frontend still only renders.
+
+## How the code is organized
+
+**One pipeline for the data.** A C file goes through the steps once, in order,
+and every value the page shows comes out of the end of it:
+
+```
+sum.c ─► software.py ─► program.json, sum.hex, golden.json (Spike)
+                         │
+synth ─► hardware.py ─► netlist.json
+                         ▼
+         simulate.py ─► trace.json   (gate-level run; the RTL run and Spike only check it)
+                         ▼
+         views.py ─► pipeline.get_* ─► api.py ─► the page (draws only)
+```
+
+**Modules, one job each** (`src/app/`, `src/web/`):
+
+| Module | Its one job |
+|---|---|
+| `pipeline.py` | The entry points: one `build_*` per pipeline step, one `get_*` per API endpoint |
+| `api.py` | HTTP routes, nothing else |
+| `cli.py` | The command line (`make artifacts`, `make preview`) |
+| `software.py` | Compile, disassemble and image the C program; run it on Spike |
+| `hardware.py` | Synthesize the core with Yosys; count gates; evaluate the adder |
+| `simulate.py` | Run the whole core (gate level and RTL) and check it against Spike |
+| `vcd.py` | Read the simulators' waveform files |
+| `decode.py` | Split an instruction word into its fields |
+| `views.py` | Build what the page draws for one cycle (cycle view, module graphs) |
+| `render.py` | Draw the adder in its textbook layout (SVG) |
+| `tools.py` | Start external programs (gcc, Spike, Yosys, Icarus, Chromium) |
+| `models.py` | The typed shape of every artifact and API response |
+| `errors.py`, `paths.py` | Error types; fixed locations |
+| `smoke.py`, `pagecheck.py` | Check the running app and its rendered page |
+| `app.js`, `graph.js` | The page: panes and stepping; layout and drawing of module views |
+
+**Design patterns and interfaces.** Each module talks to the others through
+one narrow interface, and `tests/test_architecture.py` fails if one reaches past it:
+
+- **Facade:** `pipeline.py` is the only door into the steps behind it.
+- **Adapters:** `api.py` (HTTP) and `cli.py` (command line) only translate a
+  request into a `pipeline` call. They import nothing else but the shared
+  types, errors and paths.
+- **One wrapper for external tools:** only `tools.py` starts programs
+  (`run_tool` runs to completion; `ToolStream` reads Spike's log as it comes).
+  No shell, always a timeout, one error type.
+- **Typed contracts:** `models.py` (pydantic) defines every artifact and
+  response; `/docs` is the API contract.
+- **Precompute, then look up:** everything costly runs offline in
+  `make artifacts`, so serving a cycle is a lookup.
+- **The page:** one `state` and one `show(cycle, view)` refresh every pane;
+  one fetch helper, used only for `/api/`; a request counter drops stale
+  responses. Panes never talk to each other.
+- **Direction:** the page → `api.py` → `pipeline.py` → the steps → `tools.py`.
+  Calls go down, never back up.
 
 ## Milestones
 

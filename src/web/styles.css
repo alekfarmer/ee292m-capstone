@@ -90,7 +90,7 @@ code, .code, .fbits, .wire-value, svg text { font-family: ui-monospace, "SF Mono
   padding: 10px 16px; background: var(--bg); border-bottom: 1px solid var(--line);
 }
 h1 { font-size: 1.3rem; margin: 0; }
-.lede { margin: 0; color: var(--muted); font-size: 0.9rem; max-width: 60ch; }
+.lede { margin: 0; color: var(--muted); font-size: 0.9rem; max-width: 72ch; }
 .stepper { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .stepper button, .crumb {
   font: inherit; font-size: 0.9rem; padding: 4px 10px; border-radius: 6px; cursor: pointer;

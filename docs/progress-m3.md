@@ -132,4 +132,15 @@ Both reviewers looked at this branch. Every finding was accepted:
   `t` AND gate, so it looked like a three-input gate. A new test that fails
   if any wire enters a gate's body caught this on the old drawing; the wire
   now goes round in a side channel.
-- `make verify` is green with 86 tests.
+- **First screen and plain language** (lrusso3): the page header now says
+  who the project is for, and the README opens with a sentence for readers
+  outside the field.
+- **Organization and interfaces, written down and tested:** README gained a
+  "How the code is organized" section (the one pipeline, each module's one
+  job, the design patterns by name). A new `tests/test_architecture.py`
+  checks the interfaces. It failed first on a real leak: `software.py` started
+  Spike itself, bypassing `tools.py`. The streaming run moved into
+  `tools.ToolStream`. Along the way, Spike's exit code turned into -13
+  (SIGPIPE), because `yield from` closed the pipe when the reader stopped
+  early; a plain loop fixed it.
+- `make verify` is green with 90 tests.

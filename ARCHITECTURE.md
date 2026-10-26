@@ -127,6 +127,18 @@ Makefile  README.md  ARCHITECTURE.md  AGENTS.md  CLAUDE.md
 - Errors reach the page as one plain message, and the page clears any earlier
   result when it shows one: a stale plot never sits beside an error.
 
+## Design patterns and interfaces
+
+Named in README ("How the code is organized") and enforced by
+`tests/test_architecture.py`:
+
+- `pipeline.py` is a facade: `api.py` and `cli.py` (the two adapters) import
+  only it plus `models`, `errors` and `paths`.
+- The steps (`software`, `hardware`, `simulate`, `views`, `render`, `decode`,
+  `vcd`, `tools`) never import the facade, the adapters or the checks.
+- Only `tools.py` starts external programs (`run_tool`, `ToolStream`).
+- The page fetches through one helper, and only from `/api/`.
+
 ## The container
 
 - The Dockerfile has six stages. Two tool stages, one with uv and one with
