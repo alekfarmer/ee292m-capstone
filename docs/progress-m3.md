@@ -12,6 +12,7 @@ first, approval before work, everything through the Makefile.
 | 2026-10-14 | View choices agreed (generated datapath, elkjs, gate views for small modules, two step modes) |
 | 2026-10-17 | Plan approved, with the datapath as the first view; M3 built, checked by screenshot, tested and pushed |
 | 2026-10-18 | Merged the peer-review response, spelling fix and progress logs from the earlier branches |
+| 2026-10-25 | Round 3 code reviews (suzhao, PR #3; lrusso3, PR #4) built in, ready for the PR to `main` |
 
 ## Decisions
 
@@ -112,3 +113,21 @@ first, approval before work, everything through the Makefile.
 - Gate views of the ALU shifter (398 gates), the result mux (439), the
   load/store unit (220), the PC adders (162 each) and the ALU's 82 gates of
   glue logic. All are blocks only today.
+
+## After the round 3 reviews (2026-10-25)
+
+Both reviewers looked at this branch. Every finding was accepted:
+
+- **README opening** (suzhao): who the project is for, and the comparison
+  with godbolt, Ripes and Logisim, now come first. The architecture diagram
+  now shows the page asking the API rather than loading artifact files.
+- **One program per folder** (suzhao): each program's artifacts live in
+  `backend/artifacts/<program>/`, and the API takes `?program=`. A new test
+  built a second program (`countdown.c`, a0 = 6) next to `sum`. It failed
+  before the change (the second program's files would have overwritten the
+  first's) and passes after it.
+- **The adder's `t` gate** (lrusso3): the `g` wire ran straight through the
+  `t` AND gate, so it looked like a three-input gate. A new test that fails
+  if any wire enters a gate's body caught this on the old drawing; the wire
+  now goes round in a side channel.
+- `make verify` is green with 86 tests.

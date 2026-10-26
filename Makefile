@@ -33,7 +33,7 @@ help: ## List the targets
 	@echo "  verify     Lint, test and smoke: the gate"
 	@echo "  clean      Remove this project's containers, images and generated files"
 	@echo "While developing:"
-	@echo "  artifacts  Regenerate everything in backend/artifacts/ (M0-M2)"
+	@echo "  artifacts  Regenerate everything in backend/artifacts/ (M0-M2, every program)"
 	@echo "  preview    Write the adder drawings to backend/build/preview/*.svg"
 	@echo "  screenshot Start the app, save page screenshots to backend/build/screenshots/, stop"
 	@echo "  synth-log  Run synthesis alone, full Yosys log in backend/build/synth.log"

@@ -5,6 +5,28 @@ through every layer of abstraction: **C → RISC-V assembly → machine code →
 datapath → logic gates**. You can step through it cycle by cycle, and at each
 layer the values match what the real hardware would produce.
 
+**Who it is for:** students interested in the whole stack from software to
+hardware, who want to see how a processor is implemented, layer by layer, with
+a visual representation.
+
+## Why this is worth doing
+
+Students learn each layer in a different course: C in intro programming,
+assembly in computer organization, datapaths in architecture, gates in digital
+logic. They rarely see **one** program cross **all** of these boundaries
+without a gap. Existing tools each cover only part of the stack:
+
+| Tool | C | Asm | Datapath | Gates |
+|---|---|---|---|---|
+| Compiler Explorer (godbolt) | ✅ | ✅ | – | – |
+| Ripes / Venus / RARS | partial | ✅ | ✅ (Ripes) | – |
+| Logisim / Digital / DigitalJS | – | – | manual | ✅ |
+| **This project** | ✅ | ✅ | ✅ | ✅ |
+
+The goal is that a viewer can click the `+` in `sum += i`, follow it to the
+`add` instruction, then to the ALU, then to the full adder computing bit 3,
+and see the actual 0s and 1s at that cycle.
+
 > Status: **M0–M3 done** (gate-level adder spike, software pipeline,
 > whole-core simulation, linked steppable views). M4 (gate-level views of
 > every module) is next. See `PROMPT.md` for the brief.
@@ -55,17 +77,19 @@ stale.
 | `src/web/` | The page (plain HTML, JS and SVG) |
 | `tests/` | pytest: M0, M1, rejected programs, API |
 
-Artifacts:
+Artifacts. The hardware ones sit in `backend/artifacts/`; each program's sit in
+a folder named after it (`backend/artifacts/sum/` for `sum.c`), so programs never
+overwrite each other:
 
 | File | Contents |
 |---|---|
 | `netlist.json` | Yosys JSON netlist, hierarchy kept, gates in {AND, OR, XOR, NOT, MUX, DFF}; register file and RAM are black boxes |
 | `gate_counts.json` | Gates per module, local and including submodules |
 | `adder_values.json` | Every net in the adder for each input case, from Yosys `sim` on the netlist |
-| `program.json` | C lines; asm lines `{addr, hex, text, function, c_line}` |
-| `sum.hex` | The whole 4 KiB RAM image, one little-endian word per line (`$readmemh`) |
-| `golden.json` | Spike commit log `{pc, insn, rd, rd_value}` from `_start` to the halt |
-| `trace.json` | Every net of the gate netlist in every cycle (as changes), plus what was verified |
+| `sum/program.json` | C lines; asm lines `{addr, hex, text, function, c_line}` |
+| `sum/sum.hex` | The whole 4 KiB RAM image, one little-endian word per line (`$readmemh`) |
+| `sum/golden.json` | Spike commit log `{pc, insn, rd, rd_value}` from `_start` to the halt |
+| `sum/trace.json` | Every net of the gate netlist in every cycle (as changes), plus what was verified |
 | `toolchain.json` | The version each tool reports |
 
 Gate counts (including submodules; register file and RAM count as 0):
@@ -121,45 +145,41 @@ below, with the reason.
 
 - Broader inputs (lrusso3, PR #1): deferred to M5, because every displayed bit must first be verified for one fixed program (M2–M4); the M1 pipeline already accepts any C file in the supported subset and rejects the rest with a clear error.
 
-## Why this is worth doing
+Round 3 (code reviews of `m3-views`; every finding accepted and built in, none
+pushed back on):
 
-Students learn each layer in a different course: C in intro programming,
-assembly in computer organization, datapaths in architecture, gates in digital
-logic. They rarely see **one** program cross **all** of these boundaries
-without a gap. Existing tools each cover only part of the stack:
+- Who the project is for came only after the quick start (suzhao, PR #3): it now opens the README, with the comparison with other tools.
+- Artifact names assumed one program (suzhao, PR #3): each program's artifacts now live in their own folder (`backend/artifacts/sum/`), the API takes `?program=`, and a test builds a second program next to `sum`.
+- The diagram showed the page loading artifacts (suzhao, PR #3): it now shows the page asking the API.
+- The adder's `t` gate was hard to read (lrusso3, PR #4): the `g` wire ran through it, making it look like a three-input gate; it now goes round, and a test fails if any wire crosses a gate.
 
-| Tool | C | Asm | Datapath | Gates |
-|---|---|---|---|---|
-| Compiler Explorer (godbolt) | ✅ | ✅ | – | – |
-| Ripes / Venus / RARS | partial | ✅ | ✅ (Ripes) | – |
-| Logisim / Digital / DigitalJS | – | – | manual | ✅ |
-| **This project** | ✅ | ✅ | ✅ | ✅ |
+Answers to the reviewers' questions (suzhao, PR #3):
 
-The goal is that a viewer can click the `+` in `sum += i`, follow it to the
-`add` instruction, then to the ALU, then to the full adder computing bit 3,
-and see the actual 0s and 1s at that cycle.
-
-**Audience:** Students interested in the whole stack from SW to HW.
-
-**What they decide or learn:** Learn how a processor is implemented with a visual representation.
+- In M5, a user's program will be compiled and simulated live on the server, and its trace shown only after it passes the same checks as `sum.c` (gate level vs RTL vs Spike).
+- `views.py` will be split when M4 adds the gate views of the large modules.
 
 ## Architecture and the backend/frontend boundary
 
 ```
- BACKEND (offline, Python + CLI tools)                     FRONTEND (static web app)
+ BACKEND (Python + CLI tools)                              FRONTEND (static page)
  ───────────────────────────────────────────────────┐   ┌──────────────────────────
- compile()     C ──gcc──► ELF ──objdump──► asm, hex │   │ load artifacts
- synthesize()  core.sv ──Yosys──► gate netlist.json │   │ render C / asm / hex panes
- simulate()    netlist + hex ──► per-cycle trace    │   │ render datapath + gate views
- verify()      trace vs. Spike golden log           │   │ step / scrub through cycles
-               ──► artifacts/*.json  ───────────────┼──►│ highlight, zoom, link layers
+ offline (make artifacts):                          │   │
+ compile()     C ──gcc──► ELF ──objdump──► asm, hex │   │
+ synthesize()  core.sv ──Yosys──► gate netlist.json │   │
+ simulate()    netlist + hex ──► per-cycle trace    │   │
+ verify()      trace vs. Spike golden log           │   │
+               ──► backend/artifacts/*.json         │   │
+ serving (API):                                     │   │
+ api.py → pipeline.get_* → views.py ────────────────┼──►│ fetch /api/cycle, /api/view
+   per-cycle views built from the artifacts         │   │ lay out (elkjs) and draw
+                                                    │   │ step / scrub, link panes
  ───────────────────────────────────────────────────┘   └──────────────────────────
 ```
 
 **The boundary sits after `simulate()` and `verify()`.** The backend produces
-fully evaluated, verified data: every net's value at every cycle. The frontend
-is a pure viewer. It reads JSON and draws it, and it never computes a logic
-value.
+fully evaluated, verified data: every net's value at every cycle, served
+through the API. The frontend is a pure viewer. It asks the API for a view and
+draws it, and it never computes a logic value.
 
 **What breaks if it were drawn one function earlier** (the backend ships only
 the netlist, and the frontend simulates it):
