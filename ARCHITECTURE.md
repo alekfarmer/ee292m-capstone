@@ -37,8 +37,11 @@ and result mux, the load/store unit, the PC adders, and the ALU's glue logic.
   elkjs (`docker/package.json`) to place boxes and route wires for views
   generated from the netlist; it never computes a value. The adder's
   textbook drawing is SVG rendered by the backend (`src/app/render.py`).
-- Headless Chromium (Debian `chromium-headless-shell`, major version pinned)
-  is in the image only for `make smoke` and `make screenshot`.
+- Headless Chromium (Debian `chromium-headless-shell`) is in the image only
+  for `make smoke` and `make screenshot`. Debian's security updates delete old
+  Chromium builds from the archive, so it is pinned to an exact build through
+  snapshot.debian.org (`CHROMIUM_VERSION` and `CHROMIUM_SNAPSHOT` in the
+  Dockerfile).
 - Hardware and software tools, all pinned in `docker/Dockerfile`: Yosys
   (built from a release tag), Spike (built from a commit), and Debian's
   `gcc-riscv64-unknown-elf`, `binutils-riscv64-unknown-elf` and `iverilog`

@@ -30,9 +30,11 @@ first, approval before work, everything through the Makefile.
   modules stay blocks until M4.
 - **Both step modes:** by cycle and by C line.
 - **Headless Chromium in the image** (Debian `chromium-headless-shell`,
-  major version 155 pinned; about 210 MB). It is only for `make smoke` and
-  `make screenshot`, never used by the app. The exact version can't be pinned
-  because Debian's security updates remove old Chromium builds.
+  about 210 MB). It is only for `make smoke` and `make screenshot`, never
+  used by the app. At first it was pinned to its major version (155), because
+  Debian's security updates delete old Chromium builds. That pin broke within
+  a week (Debian moved to 156), so it is now pinned to an exact build through
+  snapshot.debian.org, which keeps every build for good.
 
 ## What was built
 
