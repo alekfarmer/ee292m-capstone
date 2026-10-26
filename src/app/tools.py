@@ -1,7 +1,13 @@
-"""Run external tools without a shell, with a timeout and clear errors."""
+"""The one way the code starts external programs: no shell, a timeout, clear errors.
+
+gcc, binutils, Spike, Yosys, Icarus and Chromium are all started from here
+(:func:`run_tool` to run to completion, :class:`ToolStream` to read output as
+it comes); tests/test_architecture.py fails if another module does it itself.
+"""
 
 import subprocess
-from collections.abc import Sequence
+import threading
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 from app.errors import ToolError
@@ -39,3 +45,70 @@ def run_tool(
         detail = (proc.stderr or proc.stdout).strip()
         raise ToolError(f"{Path(argv[0]).name} failed (exit {proc.returncode}): {detail}")
     return proc
+
+
+class ToolStream:
+    """A running tool whose stderr is read line by line, as it is written.
+
+    For tools that run until told to stop (Spike keeps logging until it sees
+    the halt). Use as a context manager: leaving it kills the tool if it is
+    still running. A watchdog kills it after ``timeout`` seconds regardless.
+    """
+
+    def __init__(self, args: Sequence[str | Path], *, timeout: float) -> None:
+        """Start ``args`` (never through a shell).
+
+        Raises:
+            ToolError: the tool is missing.
+        """
+        self.argv = [str(a) for a in args]
+        try:
+            self._proc = subprocess.Popen(  # noqa: S603 - argv list, no shell
+                self.argv,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except FileNotFoundError as exc:
+            raise ToolError(f"tool not found: {self.argv[0]} (is the image built?)") from exc
+        self._watchdog = threading.Timer(timeout, self._proc.kill)
+        self._watchdog.start()
+
+    def __enter__(self) -> ToolStream:
+        """Return the stream."""
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        """Stop the watchdog, and the tool if it is still running."""
+        self._watchdog.cancel()
+        self.stop()
+
+    def lines(self) -> Iterator[str]:
+        """The tool's stderr, one line at a time, until it exits."""
+        if self._proc.stderr is None:
+            raise ToolError(f"{self.argv[0]}: no stderr to read")
+        # A plain loop, not `yield from`: closing this generator early (the
+        # caller stops reading) must not close the pipe, or the tool dies of
+        # SIGPIPE instead of exiting with its own status.
+        for line in self._proc.stderr:  # noqa: UP028
+            yield line
+
+    def stop(self) -> None:
+        """Kill the tool (if running) and wait for it."""
+        if self._proc.poll() is None:
+            self._proc.kill()
+        self._proc.wait()
+
+    def finish(self, timeout: float) -> int:
+        """Let the tool exit on its own (draining its output) and return its exit code.
+
+        Raises:
+            ToolError: it did not exit within ``timeout`` seconds.
+        """
+        try:
+            self._proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            self.stop()
+            raise ToolError(f"{Path(self.argv[0]).name} did not exit") from exc
+        return self._proc.returncode

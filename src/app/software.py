@@ -7,8 +7,6 @@ image. Programs outside the supported C subset are rejected with a
 
 import itertools
 import re
-import subprocess
-import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,7 +14,7 @@ from app.decode import decode
 from app.errors import ProgramRejectedError, ToolError
 from app.models import AsmLine, GoldenArtifact, GoldenEntry, InstructionField
 from app.paths import CRT0, LINKER_SCRIPT
-from app.tools import run_tool
+from app.tools import ToolStream, run_tool
 
 GCC = "riscv64-unknown-elf-gcc"
 AS = "riscv64-unknown-elf-as"
@@ -395,25 +393,11 @@ def run_spike(program: CompiledProgram, max_cycles: int = MAX_CYCLES) -> GoldenA
         "--log-commits",
         str(program.elf),
     ]
-    try:
-        proc = subprocess.Popen(  # noqa: S603 - argv list, no shell
-            argv,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-    except FileNotFoundError as exc:
-        raise ToolError("tool not found: spike (is the image built?)") from exc
-
-    watchdog = threading.Timer(SPIKE_WALL_TIMEOUT_S, proc.kill)
-    watchdog.start()
     entries: list[GoldenEntry] = []
     tail: list[str] = []
     started = halted = False
-    try:
-        assert proc.stderr is not None
-        for raw in proc.stderr:
+    with ToolStream(argv, timeout=SPIKE_WALL_TIMEOUT_S) as spike:
+        for raw in spike.lines():
             m = _COMMIT.match(raw.strip())
             if not m:
                 tail = [*tail[-20:], raw.rstrip()]
@@ -440,29 +424,21 @@ def run_spike(program: CompiledProgram, max_cycles: int = MAX_CYCLES) -> GoldenA
             if len(entries) > max_cycles:
                 break
         if not halted:
-            proc.kill()
-            proc.wait()
+            spike.stop()
             if len(entries) > max_cycles:
                 raise ProgramRejectedError(
                     f"the program did not halt within {max_cycles} cycles "
                     "(check for an infinite loop)"
                 )
             raise ToolError("spike exited before the program halted: " + " | ".join(tail))
-        try:
-            proc.communicate(timeout=10)  # let Spike notice tohost and exit
-        except subprocess.TimeoutExpired as exc:
-            proc.kill()
-            proc.wait()
-            raise ToolError("spike did not exit after the program halted") from exc
-    finally:
-        watchdog.cancel()
+        exit_code = spike.finish(timeout=10)  # let Spike notice tohost and exit
 
     a0 = next((e.rd_value for e in reversed(entries) if e.rd == 10), None)
     return GoldenArtifact(
         isa=SPIKE_ISA,
         retired=len(entries),
         max_cycles=max_cycles,
-        exit_code=proc.returncode,
+        exit_code=exit_code,
         a0_at_halt=a0 or "0x00000000",
         entries=entries,
     )
