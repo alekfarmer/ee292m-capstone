@@ -45,4 +45,31 @@ def test_gate_counts_and_program_served() -> None:
 def test_page_is_served() -> None:
     resp = client.get("/")
     assert resp.status_code == 200
-    assert "<title>Adder Gates</title>" in resp.text
+    assert "<title>C to Gates</title>" in resp.text
+
+
+def test_cycle_and_view_endpoints() -> None:
+    cv = client.get("/api/cycle/0").json()
+    assert cv["pc"] == "0x80000000" and cv["cycle"] == 0
+    view = client.get("/api/view/top.rv.dp", params={"cycle": 0}).json()
+    assert view["module"] == "datapath" and view["kind"] == "blocks"
+    pc = next(e for e in view["edges"] if e["target"] == "out:pc")
+    assert pc["value"] == "0x80000000"
+
+
+def test_view_inputs_are_validated() -> None:
+    assert client.get("/api/view/top.nope").status_code == 404
+    assert client.get("/api/view/../etc").status_code in (404, 422)
+    assert client.get("/api/view/top.rv.dp", params={"cycle": -1}).status_code == 422
+    assert client.get("/api/view/top.rv.dp", params={"cycle": 9999}).status_code == 404
+    assert client.get("/api/cycle/9999").status_code == 404
+
+
+def test_programs_are_listed_and_chosen_by_name() -> None:
+    assert client.get("/api/programs").json() == ["sum"]
+    assert client.get("/api/golden", params={"program": "sum"}).json()["exit_code"] == 55
+    assert client.get("/api/golden", params={"program": "nope"}).status_code == 404
+    assert client.get("/api/golden", params={"program": "../x"}).status_code == 422
+    view = client.get("/api/view/top.rv.dp", params={"cycle": 0, "program": "sum"})
+    assert view.status_code == 200
+    assert client.get("/api/cycle/0", params={"program": "nope"}).status_code == 404

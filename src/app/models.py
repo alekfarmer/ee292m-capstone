@@ -28,6 +28,16 @@ class SourceLine(Strict):
     text: str
 
 
+class InstructionField(Strict):
+    """One encoding field of an instruction word: bits ``hi`` down to ``lo``."""
+
+    name: str = Field(description="e.g. 'rd', 'funct3', 'imm[11:0]'")
+    hi: int = Field(ge=0, le=31)
+    lo: int = Field(ge=0, le=31)
+    bits: str = Field(pattern=r"^[01]+$", description="the field's bits, MSB first")
+    meaning: str = Field(description="e.g. 'rd = x10 (a0)'")
+
+
 class AsmLine(Strict):
     """One instruction of the linked program, as objdump shows it."""
 
@@ -36,6 +46,12 @@ class AsmLine(Strict):
     text: str = Field(description="objdump text (-M no-aliases), e.g. 'addi a0,zero,0'")
     function: str = Field(description="the enclosing symbol, e.g. 'main' or '_start'")
     c_line: int | None = Field(description="line in the C source, or null (startup code)")
+    format: Literal["R", "I", "S", "B", "U", "J"] | None = Field(
+        description="RV32I instruction format"
+    )
+    opcode_name: str
+    fields: list[InstructionField] = Field(description="encoding fields, bit 31 first")
+    immediate: int | None = Field(description="sign-extended immediate (shamt for shifts)")
 
 
 class ProgramArtifact(Strict):
@@ -157,6 +173,140 @@ class AdderView(Strict):
     cout: Bit
     gate_count: int
     svg: str
+
+
+# --- M2: trace.json --------------------------------------------------------
+
+
+class TraceSignal(Strict):
+    """One net of the gate-level design, named relative to ``top``."""
+
+    name: str = Field(description="e.g. 'rv.dp.alu.result' or 'rv.dp.alu.add.g_bit[3].fa.s'")
+    width: int = Field(ge=1)
+
+
+class TraceVerification(Strict):
+    """What was checked before the trace was written."""
+
+    gate_vs_rtl_signals: int = Field(description="signals compared with the RTL run each cycle")
+    gate_vs_rtl_cycles: int
+    register_writes_checked: int = Field(description="register writes matched against Spike")
+    rtl_simulator: str
+    gate_simulator: str
+
+
+class TraceArtifact(Strict):
+    """Every net's value in every cycle of the gate-level run, as changes.
+
+    ``initial[i]`` is signal ``i`` in cycle 0. ``changes[n - 1]`` lists the
+    ``[signal index, value]`` pairs that differ in cycle ``n`` from cycle
+    ``n - 1``. Values are hex strings with ``ceil(width / 4)`` digits, bit 0
+    the LSB. Cycle ``n`` holds the values just before its rising clock edge,
+    so it is instruction ``n`` of golden.json.
+    """
+
+    cycles: int
+    halt_cycle: int = Field(description="the cycle that stores to tohost")
+    signals: list[TraceSignal]
+    initial: list[str]
+    changes: list[list[tuple[int, str]]]
+    verification: TraceVerification
+
+
+# --- M3: per-cycle and module views -------------------------------------------
+
+
+class RegisterWrite(Strict):
+    """The register an instruction writes, and the value."""
+
+    rd: int = Field(ge=1, le=31)
+    name: str = Field(description="ABI name, e.g. 'a0'")
+    value: Hex32
+
+
+class CycleView(Strict):
+    """Cycle ``n``: which instruction runs, and where stepping by C line goes."""
+
+    cycle: int
+    cycles: int
+    pc: Hex32
+    insn: Hex32
+    asm_index: int = Field(description="index into program.json's asm list")
+    text: str
+    c_line: int | None
+    register_write: RegisterWrite | None
+    changed_signals: int = Field(description="nets whose value differs from the previous cycle")
+    prev_line_cycle: int | None = Field(description="first cycle of the previous C-line run")
+    next_line_cycle: int | None = Field(description="first cycle of the next C-line run")
+    halt: bool
+
+
+class Breadcrumb(Strict):
+    """One level of the module hierarchy above (and including) a view."""
+
+    path: str
+    label: str
+    module: str
+
+
+class ViewPort(Strict):
+    """A port of a node in a module view."""
+
+    name: str
+    direction: Literal["in", "out"]
+    width: int = Field(ge=1)
+
+
+class ViewNode(Strict):
+    """A box in a module view: a port of the module, a block, a gate or a constant."""
+
+    id: str
+    kind: Literal["port_in", "port_out", "block", "gate", "glue", "const"]
+    label: str
+    module: str | None = Field(default=None, description="module type, or gate kind")
+    path: str | None = Field(default=None, description="hierarchical path, for blocks")
+    drill: Literal["blocks", "gates", "adder"] | None = Field(
+        default=None, description="what opening this block shows; null if it cannot be opened"
+    )
+    gate_count: int | None = None
+    ports: list[ViewPort]
+
+
+class ViewEdge(Strict):
+    """A wire from one node's output port to another node's input port.
+
+    The wire carries ``width`` bits of ``signal`` starting at bit ``lo``
+    into bits ``target_lo..`` of the target port. ``value`` is those bits in
+    this cycle (hex, bit 0 the LSB); ``changed`` is true if they differ from
+    the previous cycle.
+    """
+
+    id: str
+    source: str
+    source_port: str
+    target: str
+    target_port: str
+    target_lo: int
+    width: int
+    net: str = Field(description="wire name as shown, e.g. 'instr[19:15]'")
+    signal: str | None = Field(description="trace signal, or null for a constant")
+    lo: int
+    value: str
+    changed: bool
+
+
+class ModuleView(Strict):
+    """One module in one cycle: a graph (blocks or gates) or the adder drawing."""
+
+    path: str = Field(description="e.g. 'top.rv.dp' (the datapath)")
+    module: str
+    kind: Literal["blocks", "gates", "adder"]
+    breadcrumbs: list[Breadcrumb]
+    cycle: int
+    gate_count: int
+    nodes: list[ViewNode]
+    edges: list[ViewEdge]
+    svg: str | None = Field(description="the drawing, for kind 'adder'")
 
 
 class Health(Strict):

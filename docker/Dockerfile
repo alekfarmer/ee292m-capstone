@@ -61,13 +61,39 @@ RUN git checkout "${SPIKE_COMMIT}" \
 
 # --------------------------------------------------------------------------
 FROM ${PYTHON_BASE} AS final
-# Debian trixie package versions are pinned exactly.
+# Debian trixie package versions are pinned exactly. iverilog's binary
+# rebuild suffix differs by architecture (+b1 amd64, +b2 arm64), so it is
+# pinned to the source version 12.0-2.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       gcc-riscv64-unknown-elf=14.2.0+19 \
       binutils-riscv64-unknown-elf=2.44-3+7+b1 \
+      'iverilog=12.0-2*' \
+      fonts-dejavu-core \
       device-tree-compiler \
       libreadline8t64 libtcl8.6 libffi8 zlib1g \
+ && rm -rf /var/lib/apt/lists/*
+
+# Headless Chromium, for the page checks in `make smoke` and `make screenshot`
+# only (never used by the app). Debian ships Chromium through security updates
+# that delete older builds from the archive, so it is pinned exactly through
+# snapshot.debian.org, which keeps every build for good. To upgrade, pick a
+# newer build and its "seen in" timestamp from
+# https://snapshot.debian.org/package/chromium/ and change both ARGs.
+ARG CHROMIUM_VERSION=156.0.8078.47-1~deb13u1
+ARG CHROMIUM_SNAPSHOT=20261022T170820Z
+RUN signed_by="$(grep -m1 '^Signed-By:' /etc/apt/sources.list.d/debian.sources)" \
+ && printf '%s\n' \
+      'Types: deb' \
+      "URIs: http://snapshot.debian.org/archive/debian-security/${CHROMIUM_SNAPSHOT}" \
+      'Suites: trixie-security' \
+      'Components: main' \
+      'Check-Valid-Until: no' \
+      "${signed_by}" \
+      > /etc/apt/sources.list.d/chromium-snapshot.sources \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends "chromium-headless-shell=${CHROMIUM_VERSION}" \
+ && rm /etc/apt/sources.list.d/chromium-snapshot.sources \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=uv-bin /uv /usr/local/bin/uv

@@ -30,7 +30,7 @@ ROW_Y0 = 70  # top of the first gate row
 ROW_DY = 95
 GATE_W = 36
 GATE_H = 30
-MARGIN_X = 40
+MARGIN_X = 64
 MARGIN_TOP = 34
 CARRY_IN_PORT = "cin"
 CARRY_OUT_PORT = "cout"
@@ -265,6 +265,73 @@ def adder_svg(netlist: Netlist, case: AdderCaseValues) -> str:
     return "".join(parts)
 
 
+SIDE_CHANNEL = 12  # distance of the detour channel from the tile edge
+
+
+def _crosses_gate(pts: list[Point], gates: list[Gate]) -> bool:
+    """True if any segment enters a gate's body (ending on its pins is fine)."""
+    half = GATE_W / 2
+    for (xa, ya), (xb, yb) in itertools.pairwise(pts):
+        for g in gates:
+            x0, x1, y0, y1 = g.x - half + 2, g.x + half - 2, g.y + 4, g.y + GATE_H - 3
+            if min(xa, xb) <= x1 and max(xa, xb) >= x0 and min(ya, yb) <= y1 and max(ya, yb) >= y0:
+                return True
+    return False
+
+
+def tile_sources(layout: TileLayout) -> dict[int, Point]:
+    """Where each net starts inside a tile: a top pin, the carry-in edge or a gate output."""
+    sources: dict[int, Point] = {}
+    top_inputs = [p for p in sorted(layout.in_ports) if p != CARRY_IN_PORT]
+    for k, port in enumerate(top_inputs):
+        sources[layout.in_ports[port]] = (TILE_W * (k + 1) / (len(top_inputs) + 1), 0.0)
+    if CARRY_IN_PORT in layout.in_ports:
+        sources[layout.in_ports[CARRY_IN_PORT]] = (float(TILE_W), layout.cin_y)
+    for g in layout.gates:
+        sources[g.output] = g.output_point()
+    return sources
+
+
+def tile_routes(layout: TileLayout) -> dict[int, list[list[Point]]]:
+    """Every wire of a tile as an axis-aligned polyline, grouped by net."""
+    sources = tile_sources(layout)
+    routes: dict[int, list[list[Point]]] = {}
+
+    # Wires into gate inputs, with a separate jog height per net to limit overlap.
+    jog: dict[int, int] = {}
+    for g in layout.gates:
+        for port, net_bit in sorted(g.inputs.items()):
+            if net_bit not in sources:
+                raise PipelineError(f"net {net_bit} of the full adder has no driver")
+            (x1, y1), (x2, y2) = sources[net_bit], g.input_point(port)
+            k = jog.setdefault(net_bit, len(jog))
+            if y1 == y2 or x1 == x2:
+                pts = [(x1, y1), (x2, y2)]
+            elif x1 >= TILE_W:  # carry in from the right edge
+                pts = [(x1, y1), (x2, y1), (x2, y2)]
+            else:
+                ym = y2 - 10 - JOG_STEP * (k % 4)
+                pts = [(x1, y1), (x1, ym), (x2, ym), (x2, y2)]
+                if _crosses_gate(pts, layout.gates):
+                    # Skips a row (g -> OR): go round the gates in a side channel.
+                    xc = TILE_W - SIDE_CHANNEL if x1 > TILE_W / 2 else SIDE_CHANNEL
+                    yd = y1 + 8
+                    pts = [(x1, y1), (x1, yd), (xc, yd), (xc, ym), (x2, ym), (x2, y2)]
+                    if _crosses_gate(pts, layout.gates):
+                        raise PipelineError(f"no gate-free route for net {net_bit}")
+            routes.setdefault(net_bit, []).append(pts)
+
+    # Output wires.
+    for port, net_bit in sorted(layout.out_ports.items()):
+        (x1, y1) = sources[net_bit]
+        if port == CARRY_OUT_PORT:
+            pts = [(x1, y1), (x1, layout.cout_y), (0.0, layout.cout_y)]
+        else:
+            pts = [(x1, y1), (x1, layout.height - 6)]
+        routes.setdefault(net_bit, []).append(pts)
+    return routes
+
+
 def _tile(layout: TileLayout, values: Mapping[str, int], bit: int, tx: float) -> str:
     oy = MARGIN_TOP
     parts = [f'<g class="tile" data-bit="{bit}" transform="translate({tx},{oy})">']
@@ -280,53 +347,21 @@ def _tile(layout: TileLayout, values: Mapping[str, int], bit: int, tx: float) ->
             raise PipelineError(f"no value for wire {name} of full adder {bit}")
         return name, values[name]
 
-    # Where each net comes from inside the tile.
-    sources: dict[int, tuple[float, float]] = {}
     top_inputs = [p for p in sorted(layout.in_ports) if p != CARRY_IN_PORT]
-    for k, port in enumerate(top_inputs):
-        x = TILE_W * (k + 1) / (len(top_inputs) + 1)
-        sources[layout.in_ports[port]] = (x, 0.0)
+    sources = tile_sources(layout)
+    for port in top_inputs:
+        x, _ = sources[layout.in_ports[port]]
         _, v = value_of(layout.in_ports[port])
         parts.append(f'<text class="pin-label" x="{x}" y="-2">{escape(port)}={v}</text>')
-    if CARRY_IN_PORT in layout.in_ports:
-        sources[layout.in_ports[CARRY_IN_PORT]] = (float(TILE_W), layout.cin_y)
-    for g in layout.gates:
-        sources[g.output] = g.output_point()
-
-    # Each wire is an axis-aligned polyline; `routes` keeps them per net so
-    # branch points can be marked with a dot afterwards.
-    routes: dict[int, list[list[Point]]] = {}
-
-    # Wires into gate inputs, with a separate jog height per net to limit overlap.
-    jog: dict[int, int] = {}
-    for g in layout.gates:
-        for port, net_bit in sorted(g.inputs.items()):
-            if net_bit not in sources:
-                raise PipelineError(f"net {net_bit} of full adder {bit} has no driver")
-            (x1, y1), (x2, y2) = sources[net_bit], g.input_point(port)
-            k = jog.setdefault(net_bit, len(jog))
-            if y1 == y2 or x1 == x2:
-                pts = [(x1, y1), (x2, y2)]
-            elif x1 >= TILE_W:  # carry in from the right edge
-                pts = [(x1, y1), (x2, y1), (x2, y2)]
-            else:
-                ym = y2 - 10 - JOG_STEP * (k % 4)
-                pts = [(x1, y1), (x1, ym), (x2, ym), (x2, y2)]
-            routes.setdefault(net_bit, []).append(pts)
-
-    # Output wires.
+    routes = tile_routes(layout)
     for port, net_bit in sorted(layout.out_ports.items()):
-        (x1, y1) = sources[net_bit]
-        if port == CARRY_OUT_PORT:
-            pts = [(x1, y1), (x1, layout.cout_y), (0.0, layout.cout_y)]
-        else:
-            pts = [(x1, y1), (x1, layout.height - 6)]
+        if port != CARRY_OUT_PORT:
+            x1, _ = sources[net_bit]
             _, v = value_of(net_bit)
             parts.append(
                 f'<text class="pin-label out" x="{x1}" y="{layout.height + 8}" '
                 f'data-bit="{bit}" data-net={quoteattr(port)}>{escape(port)}{bit}={v}</text>'
             )
-        routes.setdefault(net_bit, []).append(pts)
 
     for net_bit, paths in routes.items():
         name, v = value_of(net_bit)

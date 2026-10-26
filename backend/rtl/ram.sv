@@ -2,7 +2,9 @@
 // Instruction port and data port read combinationally; the data port writes
 // the enabled byte lanes on the rising clock edge. Addresses outside the RAM
 // wrap (only bits [11:2] are used).
-// Synthesis keeps this module as a black box (see synth.ys).
+// With SIM_RAM_IMAGE defined (both simulations define it), the RAM loads its
+// image from ram.hex (one word per line) in the simulator's working directory. Synthesis keeps this module as a black box
+// (see synth.ys).
 module ram (
     input  logic        clk,
     input  logic [31:0] iaddr,
@@ -14,6 +16,10 @@ module ram (
     output logic [31:0] drdata
 );
     logic [31:0] mem [0:1023];
+
+`ifdef SIM_RAM_IMAGE
+    initial $readmemh("ram.hex", mem);
+`endif
 
     assign idata  = mem[iaddr[11:2]];
     assign drdata = mem[daddr[11:2]];

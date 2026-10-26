@@ -1,6 +1,7 @@
 """M0: synthesis keeps hierarchy and the gate set; the drawn adder is correct."""
 
 import filecmp
+import itertools
 from pathlib import Path
 
 import pytest
@@ -121,3 +122,28 @@ def test_every_fanout_net_has_a_junction(fresh_dir: Path) -> None:
     for i in range(32):
         for net in ("a", "b", "cin", "p"):
             assert (i, net) in dots, (i, net)
+
+
+def test_no_adder_wire_runs_through_a_gate(fresh_dir: Path) -> None:
+    """A wire may end at a gate's pins but never cross its body (lrusso3, PR #4)."""
+    netlist = hardware.load_netlist(fresh_dir / pipeline.NETLIST_FILE)
+    layout = render.tile_layout(netlist)
+    half = render.GATE_W / 2
+    # The gate body, shrunk by a few pixels so wires ending on its pins don't count.
+    boxes = [
+        (g.name, g.x - half + 2, g.x + half - 2, g.y + 4, g.y + render.GATE_H - 3)
+        for g in layout.gates
+    ]
+    crossings = []
+    for net, paths in render.tile_routes(layout).items():
+        for pts in paths:
+            for (xa, ya), (xb, yb) in itertools.pairwise(pts):
+                for name, x0, x1, y0, y1 in boxes:
+                    if (
+                        min(xa, xb) <= x1
+                        and max(xa, xb) >= x0
+                        and min(ya, yb) <= y1
+                        and max(ya, yb) >= y0
+                    ):
+                        crossings.append((layout.net_names[net], name))
+    assert not crossings, f"wires through gates: {crossings}"

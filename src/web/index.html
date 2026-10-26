@@ -3,43 +3,82 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Adder Gates</title>
+  <title>C to Gates</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header>
-    <h1>The ALU's adder, gate by gate</h1>
-    <p class="lede">
-      The 32-bit ripple-carry adder inside the RV32I core's ALU, after synthesis
-      with Yosys. Every gate below is a cell in the synthesized netlist, and every
-      wire's value comes from Yosys simulating that netlist. Bit 0 (the LSB) is on
-      the right; the carry ripples right to left.
-    </p>
+  <header class="top">
+    <div class="title">
+      <h1>C to Gates</h1>
+      <p class="lede">For students who want to see the whole stack, from software to hardware:
+        follow one C program through assembly, machine code and the processor's datapath
+        down to its logic gates, cycle by cycle. Every value shown is the verified
+        gate-level simulation of a single-cycle RV32I core.</p>
+    </div>
+    <nav class="stepper" aria-label="Step through the program">
+      <button type="button" id="first" title="First cycle (Home)">|◀</button>
+      <button type="button" id="prev-line" title="Previous C line (↑)">◀ line</button>
+      <button type="button" id="prev" title="Previous cycle (←)">◀ cycle</button>
+      <button type="button" id="play" title="Play / pause (space)" aria-pressed="false">▶ play</button>
+      <button type="button" id="next" title="Next cycle (→)">cycle ▶</button>
+      <button type="button" id="next-line" title="Next C line (↓)">line ▶</button>
+      <button type="button" id="last" title="Last cycle (End)">▶|</button>
+      <label class="slider">
+        <span id="cycle-label">cycle 0</span>
+        <input type="range" id="cycle" min="0" max="0" value="0" aria-label="Cycle">
+      </label>
+      <label class="speed">speed
+        <select id="speed" aria-label="Play speed">
+          <option value="1000">1 / s</option>
+          <option value="500" selected>2 / s</option>
+          <option value="200">5 / s</option>
+        </select>
+      </label>
+    </nav>
   </header>
 
+  <p id="error" class="error" role="alert" hidden></p>
+
   <main>
-    <section class="controls" aria-label="Input case">
-      <div id="cases" class="cases" role="group" aria-label="Choose inputs"></div>
-      <dl id="readout" class="readout"></dl>
+    <section class="pane" aria-labelledby="c-title">
+      <h2 id="c-title">C source <span id="c-file" class="muted"></span></h2>
+      <ol id="c-lines" class="code c-code"></ol>
     </section>
 
-    <p id="error" class="error" role="alert" hidden></p>
-
-    <section class="legend" aria-label="Legend">
-      <span><i class="swatch v1"></i> wire = 1</span>
-      <span><i class="swatch v0"></i> wire = 0</span>
-      <span>p = a XOR b (propagate), g = a AND b (generate), t = p AND cin</span>
+    <section class="pane" aria-labelledby="asm-title">
+      <h2 id="asm-title">Assembly <span class="muted">RV32I, real instructions</span></h2>
+      <div class="code-scroll">
+        <table id="asm" class="code asm"></table>
+      </div>
     </section>
 
-    <div id="drawing" class="drawing" tabindex="0" aria-label="Adder drawing; scroll sideways"></div>
+    <section class="pane binary-pane" aria-labelledby="bin-title">
+      <h2 id="bin-title">Machine code</h2>
+      <p id="insn-summary" class="summary"></p>
+      <div id="fields" class="fields"></div>
+      <p id="effect" class="summary"></p>
+    </section>
 
-    <section aria-labelledby="counts-title">
-      <h2 id="counts-title">Gate counts of the whole core</h2>
-      <p class="note">Including submodules. Register file and RAM are black boxes (0 gates).</p>
-      <table id="counts" class="counts"></table>
+    <section class="pane hw-pane" aria-labelledby="hw-title">
+      <div class="hw-head">
+        <h2 id="hw-title">Hardware</h2>
+        <nav id="crumbs" class="crumbs" aria-label="Module path"></nav>
+        <span id="view-info" class="muted"></span>
+        <label class="fit"><input type="checkbox" id="show-changed" checked> highlight changes</label>
+        <label class="fit"><input type="checkbox" id="fit"> fit to width</label>
+      </div>
+      <div class="legend">
+        <span><i class="sw one"></i>1</span>
+        <span><i class="sw zero"></i>0</span>
+        <span><i class="sw bus"></i>bus (value on the wire)</span>
+        <span><i class="sw changed"></i>changed this cycle</span>
+        <span>click a block marked ⤢ to open it</span>
+      </div>
+      <div id="view" class="view" tabindex="0" aria-label="Module drawing"></div>
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <script src="/vendor/elkjs/lib/elk.bundled.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

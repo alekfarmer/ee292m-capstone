@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Path
+from fastapi import FastAPI, HTTPException, Path, Query
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
@@ -12,10 +12,13 @@ from app.errors import ArtifactMissingError, PipelineError
 from app.models import (
     AdderCaseInfo,
     AdderView,
+    CycleView,
     GateCountReport,
     GoldenArtifact,
     Health,
+    ModuleView,
     ProgramArtifact,
+    TraceArtifact,
 )
 from app.paths import VENDOR_DIR, WEB_DIR
 
@@ -25,6 +28,18 @@ app = FastAPI(
     version="0.1.0",
 )
 
+ViewPath = Annotated[
+    str,
+    Path(
+        pattern=r"^top(\.[A-Za-z_][A-Za-z0-9_]*){0,8}$",
+        description="instance path, e.g. 'top.rv.dp' (the datapath)",
+    ),
+]
+CycleNo = Annotated[int, Query(ge=0, le=100_000, description="cycle number, 0 = first instruction")]
+ProgramName = Annotated[
+    str,
+    Query(pattern=r"^[a-z][a-z0-9_]{0,31}$", description="program name, e.g. 'sum'"),
+]
 CaseId = Annotated[str, Path(pattern=r"^[a-z0-9_]{1,64}$", description="adder case id")]
 
 
@@ -44,16 +59,69 @@ def health() -> Health:
     return Health(status="ok")
 
 
+@app.get("/api/programs")
+def programs() -> list[str]:
+    """The programs that have artifacts, by name (e.g. 'sum')."""
+    return pipeline.list_programs()
+
+
+def _unknown_program(name: str) -> HTTPException:
+    return HTTPException(status_code=404, detail=f"no program '{name}' has been built")
+
+
 @app.get("/api/program")
-def program() -> ProgramArtifact:
-    """The fixed C program, its asm listing and memory layout (M1)."""
-    return pipeline.get_program()
+def program(program: ProgramName = pipeline.DEFAULT_PROGRAM) -> ProgramArtifact:
+    """A program's C source, asm listing and memory layout (M1)."""
+    try:
+        return pipeline.get_program(program=program)
+    except KeyError:
+        raise _unknown_program(program) from None
 
 
 @app.get("/api/golden")
-def golden() -> GoldenArtifact:
-    """Spike's commit log for the fixed program (M1)."""
-    return pipeline.get_golden()
+def golden(program: ProgramName = pipeline.DEFAULT_PROGRAM) -> GoldenArtifact:
+    """Spike's commit log for a program (M1)."""
+    try:
+        return pipeline.get_golden(program=program)
+    except KeyError:
+        raise _unknown_program(program) from None
+
+
+@app.get("/api/trace")
+def trace(program: ProgramName = pipeline.DEFAULT_PROGRAM) -> TraceArtifact:
+    """Every net's value in every cycle of a program's gate-level run (M2)."""
+    try:
+        return pipeline.get_trace(program=program)
+    except KeyError:
+        raise _unknown_program(program) from None
+
+
+@app.get("/api/cycle/{n}")
+def cycle(
+    n: Annotated[int, Path(ge=0, le=100_000)],
+    program: ProgramName = pipeline.DEFAULT_PROGRAM,
+) -> CycleView:
+    """What runs in cycle n, its register write, and the C-line step targets (M3)."""
+    try:
+        return pipeline.get_cycle_view(n, program=program)
+    except KeyError:
+        raise HTTPException(
+            status_code=404, detail=f"no program '{program}' or no cycle {n} in its trace"
+        ) from None
+
+
+@app.get("/api/view/{path}")
+def module_view(
+    path: ViewPath, cycle: CycleNo = 0, program: ProgramName = pipeline.DEFAULT_PROGRAM
+) -> ModuleView:
+    """One module (blocks or gates) with every wire's value in a cycle (M3)."""
+    try:
+        return pipeline.get_module_view(path, cycle, program=program)
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"no program '{program}', no instance '{path}' or no cycle {cycle}",
+        ) from None
 
 
 @app.get("/api/gate-counts")
