@@ -57,7 +57,7 @@ def test_asm_text_assembles_to_its_hex(program: ProgramArtifact, tmp_path: Path)
 
 
 def test_hex_image_holds_the_listed_instructions(program: ProgramArtifact, fresh_dir: Path) -> None:
-    words = read_image(fresh_dir / program.image_file)
+    words = read_image(fresh_dir / pipeline.DEFAULT_PROGRAM / program.image_file)
     assert len(words) == program.ram_size_bytes // 4
     base = int(program.ram_base, 16)
     for line in program.asm:
@@ -89,6 +89,7 @@ def test_addresses_are_word_aligned_and_consecutive(program: ProgramArtifact) ->
 
 @pytest.mark.parametrize("name", [pipeline.PROGRAM_FILE, pipeline.GOLDEN_FILE, "sum.hex"])
 def test_committed_program_artifacts_are_up_to_date(fresh_dir: Path, name: str) -> None:
-    assert filecmp.cmp(fresh_dir / name, ARTIFACTS_DIR / name, shallow=False), (
-        f"backend/artifacts/{name} is stale; run 'make artifacts'"
+    rel = f"{pipeline.DEFAULT_PROGRAM}/{name}"
+    assert filecmp.cmp(fresh_dir / rel, ARTIFACTS_DIR / rel, shallow=False), (
+        f"backend/artifacts/{rel} is stale; run 'make artifacts'"
     )

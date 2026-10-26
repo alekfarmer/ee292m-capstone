@@ -124,7 +124,9 @@ def test_gate_level_equals_rtl_every_cycle(
     program = pipeline.get_program(fresh_dir)
     words = [
         int(line, 16)
-        for line in (fresh_dir / program.image_file).read_text().splitlines()
+        for line in (fresh_dir / pipeline.DEFAULT_PROGRAM / program.image_file)
+        .read_text()
+        .splitlines()
         if not line.startswith("//")
     ]
     n = golden.retired
@@ -143,7 +145,7 @@ def test_gate_level_equals_rtl_every_cycle(
 
 
 def test_committed_trace_is_up_to_date(fresh_dir: Path) -> None:
-    name = pipeline.TRACE_FILE
-    assert filecmp.cmp(fresh_dir / name, ARTIFACTS_DIR / name, shallow=False), (
-        f"backend/artifacts/{name} is stale; run 'make artifacts'"
+    rel = f"{pipeline.DEFAULT_PROGRAM}/{pipeline.TRACE_FILE}"
+    assert filecmp.cmp(fresh_dir / rel, ARTIFACTS_DIR / rel, shallow=False), (
+        f"backend/artifacts/{rel} is stale; run 'make artifacts'"
     )

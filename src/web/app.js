@@ -5,6 +5,7 @@
 import { drawModule } from "./graph.js";
 
 const DEFAULT_VIEW = "top.rv.dp"; // the datapath
+const DEFAULT_PROGRAM = "sum";
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -26,6 +27,7 @@ const els = {
 };
 
 const state = {
+  programName: DEFAULT_PROGRAM, // which program's artifacts to show
   program: null,
   cycles: 0,
   cycle: 0,
@@ -35,6 +37,10 @@ const state = {
   timer: null,
   request: 0, // newest request number; older responses are dropped
 };
+
+function programQuery() {
+  return `program=${encodeURIComponent(state.programName)}`;
+}
 
 async function getJson(path) {
   const resp = await fetch(path);
@@ -172,14 +178,14 @@ async function show(cycle, path = state.viewPath) {
   const ticket = ++state.request;
   try {
     const [cv, view] = await Promise.all([
-      getJson(`/api/cycle/${cycle}`),
-      getJson(`/api/view/${encodeURIComponent(path)}?cycle=${cycle}`),
+      getJson(`/api/cycle/${cycle}?${programQuery()}`),
+      getJson(`/api/view/${encodeURIComponent(path)}?cycle=${cycle}&${programQuery()}`),
     ]);
     if (ticket !== state.request) return; // a newer step superseded this one
     state.cycle = cycle;
     state.cv = cv;
     state.viewPath = path;
-    history.replaceState(null, "", `#cycle=${cycle}&view=${path}`);
+    history.replaceState(null, "", `#program=${state.programName}&cycle=${cycle}&view=${path}`);
     clearError();
     renderCycle(cv);
     renderCrumbs(view);
@@ -258,13 +264,15 @@ function wireControls() {
 async function init() {
   wireControls();
   try {
-    state.program = await getJson("/api/program");
-    const golden = await getJson("/api/golden");
+    // The URL can name a program, a cycle and a view:
+    //   #program=sum&cycle=11&view=top.rv.dp.alu
+    const hash = new URLSearchParams(location.hash.slice(1));
+    state.programName = hash.get("program") || DEFAULT_PROGRAM;
+    state.program = await getJson(`/api/program?${programQuery()}`);
+    const golden = await getJson(`/api/golden?${programQuery()}`);
     state.cycles = golden.retired;
     els.slider.max = String(state.cycles - 1);
     renderSource(state.program);
-    // The URL can name a cycle and a view: #cycle=11&view=top.rv.dp.alu
-    const hash = new URLSearchParams(location.hash.slice(1));
     const start = Math.min(Math.max(Number(hash.get("cycle")) || 0, 0), state.cycles - 1);
     await show(start, hash.get("view") || DEFAULT_VIEW);
   } catch (err) {

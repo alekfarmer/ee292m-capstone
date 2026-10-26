@@ -23,21 +23,20 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         counts = pipeline.get_gate_counts()
-        golden = pipeline.get_golden()
         print("Gate counts (including submodules):")
         for row in counts.summary:
             print(f"  {row.total_gates:6d}  {row.label} [{row.module}]")
-        print(
-            f"Spike: {golden.retired} instructions retired, "
-            f"a0 = {golden.a0_at_halt}, exit code {golden.exit_code}"
-        )
-        trace = pipeline.get_trace()
-        v = trace.verification
-        print(
-            f"Trace: {trace.cycles} cycles, {len(trace.signals)} signals; "
-            f"gate level = RTL on {v.gate_vs_rtl_signals} signals every cycle; "
-            f"{v.register_writes_checked} register writes match Spike"
-        )
+        for name in pipeline.list_programs():
+            golden = pipeline.get_golden(program=name)
+            trace = pipeline.get_trace(program=name)
+            v = trace.verification
+            print(
+                f"{name}: Spike retired {golden.retired} instructions, "
+                f"a0 = {golden.a0_at_halt}, exit code {golden.exit_code}; "
+                f"trace {trace.cycles} cycles, {len(trace.signals)} signals, "
+                f"gate level = RTL on {v.gate_vs_rtl_signals} signals every cycle, "
+                f"{v.register_writes_checked} register writes match Spike"
+            )
         for case in pipeline.list_adder_cases():
             view = pipeline.get_adder_view(case.case_id)
             print(f"Adder {view.label}: sum = {view.sum}, cout = {view.cout}")

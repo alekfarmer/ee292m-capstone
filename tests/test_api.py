@@ -63,3 +63,13 @@ def test_view_inputs_are_validated() -> None:
     assert client.get("/api/view/top.rv.dp", params={"cycle": -1}).status_code == 422
     assert client.get("/api/view/top.rv.dp", params={"cycle": 9999}).status_code == 404
     assert client.get("/api/cycle/9999").status_code == 404
+
+
+def test_programs_are_listed_and_chosen_by_name() -> None:
+    assert client.get("/api/programs").json() == ["sum"]
+    assert client.get("/api/golden", params={"program": "sum"}).json()["exit_code"] == 55
+    assert client.get("/api/golden", params={"program": "nope"}).status_code == 404
+    assert client.get("/api/golden", params={"program": "../x"}).status_code == 422
+    view = client.get("/api/view/top.rv.dp", params={"cycle": 0, "program": "sum"})
+    assert view.status_code == 200
+    assert client.get("/api/cycle/0", params={"program": "nope"}).status_code == 404
