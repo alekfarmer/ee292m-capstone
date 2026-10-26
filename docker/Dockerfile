@@ -72,7 +72,7 @@ RUN apt-get update \
       gcc-riscv64-unknown-elf=14.2.0+19 \
       binutils-riscv64-unknown-elf=2.44-3+7+b1 \
       'iverilog=12.0-2*' \
-      'chromium-headless-shell=155.*' fonts-dejavu-core \
+      'chromium-headless-shell=156.*' fonts-dejavu-core \
       device-tree-compiler \
       libreadline8t64 libtcl8.6 libffi8 zlib1g \
  && rm -rf /var/lib/apt/lists/*
