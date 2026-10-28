@@ -8,7 +8,7 @@
 
 ## Status
 
-This is a written review. We have not discussed it yet; the suggestions are only suggestions, and what to change is up to you.
+This is a written review, followed by an email exchange on 27 October (see the end).
 
 ## What I ran
 
@@ -52,4 +52,4 @@ Smaller:
 
 ## What Alek decided
 
-(To be filled after we discuss.)
+By email on 27 October, Alek accepted the main suggestion: he will open the page on a `sum += i` cycle with a "start here" sentence.
