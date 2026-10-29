@@ -80,6 +80,8 @@ RUN apt-get update \
 # snapshot.debian.org, which keeps every build for good. To upgrade, pick a
 # newer build and its "seen in" timestamp from
 # https://snapshot.debian.org/package/chromium/ and change both ARGs.
+# chromium-common is pinned too: chromium-headless-shell needs exactly the same
+# version, and the live security archive would otherwise offer a newer one.
 ARG CHROMIUM_VERSION=156.0.8078.47-1~deb13u1
 ARG CHROMIUM_SNAPSHOT=20261022T170820Z
 RUN signed_by="$(grep -m1 '^Signed-By:' /etc/apt/sources.list.d/debian.sources)" \
@@ -92,7 +94,9 @@ RUN signed_by="$(grep -m1 '^Signed-By:' /etc/apt/sources.list.d/debian.sources)"
       "${signed_by}" \
       > /etc/apt/sources.list.d/chromium-snapshot.sources \
  && apt-get update \
- && apt-get install -y --no-install-recommends "chromium-headless-shell=${CHROMIUM_VERSION}" \
+ && apt-get install -y --no-install-recommends \
+      "chromium-headless-shell=${CHROMIUM_VERSION}" \
+      "chromium-common=${CHROMIUM_VERSION}" \
  && rm /etc/apt/sources.list.d/chromium-snapshot.sources \
  && rm -rf /var/lib/apt/lists/*
 
