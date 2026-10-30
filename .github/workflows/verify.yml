@@ -1,0 +1,59 @@
+# The gate, from a fresh clone, on every pull request and on main.
+#
+# Linux runs the whole `make verify` natively on both architectures the image
+# supports. GitHub's Windows machines cannot run Linux containers, so the
+# Windows job checks what differs there: line endings and the Makefile under
+# Git Bash.
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: make verify (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - run: make verify
+
+  windows:
+    name: Windows checkout and Makefile
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Windows runners check out with core.autocrlf=true, like a default
+      # Git for Windows install; .gitattributes must still give LF.
+      - uses: actions/checkout@v5
+      - name: Every file is checked out with LF endings
+        run: |
+          crlf="$(git ls-files --eol | grep 'w/crlf' || true)"
+          if [ -n "$crlf" ]; then echo "Checked out with CRLF:"; echo "$crlf"; exit 1; fi
+      - name: Install GNU Make if missing
+        run: command -v make || choco install make -y --no-progress
+      - name: The Makefile runs under Git Bash and uses user id 1000
+        run: |
+          make help
+          make -pn help | grep -E '^HOST_UID := 1000$'
+          make -pn help | grep -E '^HOST_GID := 1000$'

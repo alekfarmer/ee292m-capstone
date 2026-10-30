@@ -39,7 +39,10 @@ and see the actual 0s and 1s at that cycle.
 ## Quick start
 
 You need Docker (running), GNU Make and git. Nothing else is installed on
-your machine; every tool runs inside the project's container.
+your machine; every tool runs inside the project's container. It runs on
+Linux, macOS and Windows, on Intel/AMD (amd64) and ARM (arm64, including
+Apple silicon) machines; the image is built natively for yours. On Windows,
+see [Windows](#windows) first.
 
 ```sh
 make build      # first time: ~15-25 min (Yosys and Spike are built from source)
@@ -70,6 +73,30 @@ The page follows `sum.c` cycle by cycle:
 `make artifacts` regenerates everything in `backend/artifacts/` from the
 sources; the generated files are committed, and the tests fail if they are
 stale.
+
+### Windows
+
+No WSL setup or Linux shell of your own is needed. You need three things:
+
+1. **Docker Desktop**, installed and running. It manages its own Linux
+   backend; you never work inside it.
+2. **Git for Windows** (`winget install Git.Git`). It includes **Git Bash**,
+   which provides the shell and small tools (`sh`, `id`, `tr`, `sed`, ...)
+   the Makefile uses.
+3. **GNU Make** (`winget install ezwinports.make`), then open a new Git Bash
+   window so it is on the path.
+
+Run every `make` command from **Git Bash**, not from PowerShell or cmd.
+
+The repository's `.gitattributes` keeps Mac/Linux (LF) line endings on every
+machine, which the tests need. A clone made before that file was added keeps
+Windows endings; delete it and clone again. `make test` names any file with
+Windows endings.
+
+CI runs `make verify` on Linux amd64 and arm64 for every pull request, and
+checks the Windows line endings and the Makefile under Git Bash. The full app
+on Windows has not been run by CI: GitHub's Windows machines cannot run Linux
+containers.
 
 ## What exists now
 

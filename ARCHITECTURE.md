@@ -80,8 +80,9 @@ docs/                decisions worth remembering, one short file each
 feedback/            peer reviews, merged from review pull requests; never edited
 data/                only when the project has data: raw/ is never modified,
                      processed/ is gitignored
+.github/workflows/   CI: `make verify` on Linux amd64 and arm64, Windows checks
 Makefile  README.md  ARCHITECTURE.md  AGENTS.md  CLAUDE.md
-.gitignore  .env.example  ruff.toml  pytest.ini  mypy.ini
+.gitignore  .gitattributes  .env.example  ruff.toml  pytest.ini  mypy.ini
 ```
 
 ## Backend
@@ -154,12 +155,18 @@ Named in README ("How the code is organized") and enforced by
   copied into the image outside `/work` (the mount would hide them). Never
   installed on the host, never committed, never loaded from a CDN.
 - `compose.yaml` publishes on `127.0.0.1` and runs as the host user (its user
-  and group IDs passed in by the Makefile), with `HOME` set to a writable
-  directory inside the container for the tools' caches.
+  and group IDs passed in by the Makefile; 1000 on Windows, which has no
+  such IDs), with `HOME` set to a writable directory inside the container
+  for the tools' caches.
 - The Makefile names the compose project after the repository directory
   (`COMPOSE_PROJECT_NAME`), so two projects never share containers or images.
 - `.env` holds plain `KEY=value` lines, without quotes; the Makefile includes
   and exports it, because compose pointed at `docker/` would not find it.
+- Portable: the image builds natively on amd64 and arm64 (every apt pin
+  exists on both), and Makefile recipes are POSIX sh, so they run on Linux,
+  macOS and Windows (Git Bash). `.gitattributes` keeps LF endings on every
+  checkout, because the committed artifacts are compared byte for byte;
+  `tests/test_portability.py` fails with the real cause if they are not.
 
 ## Makefile
 
