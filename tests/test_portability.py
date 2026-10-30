@@ -10,7 +10,13 @@ from pathlib import Path
 from app.paths import ARTIFACTS_DIR, BACKEND, REPO_ROOT
 
 # Directories whose files are generated from, or compared with, the sources.
-CHECKED_DIRS = [ARTIFACTS_DIR, BACKEND / "rtl", BACKEND / "programs", REPO_ROOT / "src", REPO_ROOT / "tests"]
+CHECKED_DIRS = [
+    ARTIFACTS_DIR,
+    BACKEND / "rtl",
+    BACKEND / "programs",
+    REPO_ROOT / "src",
+    REPO_ROOT / "tests",
+]
 
 CRLF_HINT = (
     "has Windows (CRLF) line endings. .gitattributes keeps LF on every machine, "
