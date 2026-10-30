@@ -1,0 +1,4 @@
+# Keep LF line endings on every machine, whatever the local git settings.
+# The committed artifacts are compared byte for byte with fresh ones, so a
+# Windows checkout with CRLF endings would make the tests fail.
+* text=auto eol=lf

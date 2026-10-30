@@ -1,7 +1,8 @@
 # Every command the project needs runs through this file, inside the
 # development container. `make help` lists the targets.
 
-SHELL := /bin/bash
+# Recipes are plain POSIX sh, so they run under make's default shell on
+# Linux and macOS, and under Git Bash's sh on Windows (see the README).
 .DEFAULT_GOAL := help
 
 -include .env
@@ -10,8 +11,18 @@ export
 # Name the compose project after the repository directory (lowercased,
 # anything unusual replaced) so two projects never share containers.
 COMPOSE_PROJECT_NAME := $(shell basename "$(CURDIR)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/-/g')
+
+# The container runs as you, so files it writes into the repository are yours.
+# Windows has no such ids (Git Bash invents large ones, and Docker Desktop
+# ignores ownership on shared folders), so use an ordinary user id there.
+HOST_OS := $(shell uname -s)
+ifneq ($(filter Linux Darwin,$(HOST_OS)),)
 HOST_UID := $(shell id -u)
 HOST_GID := $(shell id -g)
+else
+HOST_UID := 1000
+HOST_GID := 1000
+endif
 export COMPOSE_PROJECT_NAME HOST_UID HOST_GID
 
 COMPOSE := docker compose -f docker/compose.yaml
