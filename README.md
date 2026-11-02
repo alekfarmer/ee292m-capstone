@@ -53,10 +53,13 @@ make verify     # the gate: build, lint, tests, smoke check
 make help       # every target
 ```
 
-`make pull` needs no account. It takes only the image built from exactly this
-checkout's `docker/` files; if there is none (you changed `docker/`), it says
-so, and `make build` builds it. `make build` skips the build when the image
-there already matches.
+`make pull` needs no account. It takes only the image CI built from this
+checkout's `docker/` files (the tag is a fingerprint of them). If there is
+none, because you changed `docker/` or CI has not published one yet, it says
+so and `make build` builds it. `make build` skips the build when the image
+there already matches. Images with the same tag come from the same `docker/`
+files, but not necessarily identical bytes: the Python base image and some
+Debian packages are taken at their current version when the image is built.
 
 The page follows `sum.c` cycle by cycle:
 
@@ -99,8 +102,12 @@ machine, which the tests need. A clone made before that file was added keeps
 Windows endings; delete it and clone again. `make test` names any file with
 Windows endings.
 
-CI runs `make verify` on Linux amd64 and arm64 for every pull request, and
-checks the Windows line endings and the Makefile under Git Bash. The full app
+CI runs `make verify` and `make regression` on Linux amd64 and arm64 for
+every pull request, and checks the Windows line endings and the Makefile
+under Git Bash. On `main` it then publishes each verified image for `make
+pull`. Once a week it builds the image from scratch instead of pulling it,
+because the package archives change under a fixed Dockerfile (the Chromium
+break in PR #7) and nothing else would notice. The full app
 on Windows has not been run by CI: GitHub's Windows machines cannot run Linux
 containers.
 
@@ -113,7 +120,7 @@ containers.
 | `backend/artifacts/` | Generated, committed (below) |
 | `src/app/` | Python backend: pipelines and the API (`/docs` lists the endpoints) |
 | `src/web/` | The page (plain HTML, JS and SVG) |
-| `tests/` | pytest: M0-M3, rejected programs, API, architecture, portability |
+| `tests/` | pytest: M0-M3, rejected programs, API, architecture, portability, image fingerprint |
 
 Artifacts. The hardware ones sit in `backend/artifacts/`; each program's sit in
 a folder named after it (`backend/artifacts/sum/` for `sum.c`), so programs never
@@ -165,7 +172,7 @@ as Spike. The trace holds all 1,876 nets (6,059 bits), about 1 MB.
 `/api/view/{path}?cycle=n`) from the netlist and the verified trace, including
 the value of each partial bus such as `instr[19:15]`; the page only lays them
 out (elkjs) and draws. The page opens on the cycle `/api/start` names: the first time
-the program loops back (for `sum.c`, cycle 11, the first `sum += i`, where the
+the program loops back, by a branch or plain jump within a function (for `sum.c`, cycle 11, the first `sum += i`, where the
 C line, the instruction and the ALU light up together), else the first cycle
 on a C line, else cycle 0. Tests check that every wire of every view carries the
 trace's value and that every input of every block is drawn connected; the
@@ -173,21 +180,27 @@ smoke check loads the real page in headless Chromium and reads a drawn wire.
 Shown as blocks only until M4: the ALU shifter and result mux, the load/store
 unit, the PC adders, and the ALU's 82 gates of glue logic.
 
-**Planted defects (`make regression`):** each defect in the answer key,
-`src/app/regression_key.py`, is planted in a copy of the repository, which
-then runs `make artifacts`, `make test` and the smoke check. It passes only if
-the stage the key names fails, with the message the key names:
+**Planted defects (`make regression`, about 30 s):** each defect in the
+answer key, `src/app/regression_key.py`, is planted in a copy of the
+repository, which then runs `make artifacts`, `make test` and the smoke check,
+as a developer would after an edit. It passes only if the stage the key names
+fails, with the message the key names. A blind spot passes only if every stage
+passes and the rebuilt artifacts differ, which shows the edit reached the
+design. Because the artifacts are rebuilt first, the "committed artifact is up
+to date" tests do not count here; they catch an edit made without `make
+artifacts`.
 
 | Plant | Caught by | Why that one |
 |---|---|---|
-| `bge` taken as `blt` in the RTL | `make artifacts`: "cycle 11: hardware is at pc=0x8000004c" (Spike) | Gate level and RTL run the same wrong design and agree |
+| `bge` taken as `blt` in the RTL | `make artifacts`: "cycle 11: hardware is at pc=0x8000004c" (Spike) | Gate level and RTL run the same wrong design and agree; the loop exits before its first pass |
 | XOR as OR in the gate netlist's full adders | `make artifacts`: "gate level and RTL differ" | The RTL is still right |
 | Every wire drawn as 0 on the page | smoke: "the drawn pc wire does not show 0x80000000" | Every backend number is still right |
-| `sra` shifts in 0s like `srl` | nothing (a known blind spot) | `sum.c` never runs `sra`; programs that exercise every instruction come with M5 |
+| The page opens one cycle late (backend) | `make test`: `test_the_page_opens_on_the_first_sum_line` | No hardware changes, so the artifacts are right |
+| `sra` shifts in 0s like `srl` | nothing (a known blind spot) | The wrong value is in the rebuilt trace (cycle 55's shifter), but Spike compares only pc, instruction and register writes, and gate level and RTL agree; programs that run every instruction come with M5 |
 
-The tripwire almost any wrong result moves is a0 = 55: Spike's exit code, the
-core's a0 at its halt in the gate-level trace (`test_m2_trace.py`), and the
-smoke check.
+The tripwire almost any wrong result moves is a0 = 55, checked two
+independent ways: Spike's exit code, and the core's own halt store in the
+gate-level trace (`test_m2_trace.py`, and the smoke check through the API).
 
 **Rejected programs:** floats, `*` `/` `%`, `#include`, calls into libc or
 other undefined functions, images larger than RAM, and programs that do not
@@ -222,11 +235,14 @@ finding built in, none pushed back on; what changed is in
 
 - The message: the page opened on start-up code, where nothing lines up (suzhao): it now opens on cycle 11, the first `sum += i`, chosen by the backend (`/api/start`), and the smoke check fails unless that cycle's C line and instruction are lit.
 - The interface: no "start here" (suzhao): one sentence beside the hardware view says what to press and what to watch, and why the page opened where it did.
-- The tests: the planted bugs were reverted by hand and protected nothing afterwards (suzhao): `make regression` plants all three, plus a known blind spot, and checks each against an answer key; CI runs it on every pull request.
-- The tests: one wrong program the tests would still pass, and one tripwire (lrusso3): `sra` broken (`sum.c` never runs it), kept in the answer key as an expected miss; the tripwire is a0 = 55.
+- The tests: the planted bugs were reverted by hand and protected nothing afterwards (suzhao): `make regression` plants all three, plus one caught by the tests and a known blind spot, and checks each against an answer key; CI runs it on every pull request.
+- The tests: one wrong program the tests would still pass, and one tripwire (lrusso3): `sra` broken, kept in the answer key as an expected miss (the wrong value appears, but no check compares that net with an independent model); the tripwire is a0 = 55.
 - Time: the first build took 15-25 minutes on every core (suzhao): `make pull` downloads the image CI built and verified, in a few minutes; `make build` remains for changes to `docker/`.
-- Limits: on Windows, git's line-ending conversion would fail the byte-for-byte artifact tests (lrusso3): `.gitattributes` keeps LF everywhere (PR #8), and a test names the cause if not.
-- Question, will M5 programs open on a meaningful cycle? (suzhao): yes, by the same rule: the first loop-back, else the first cycle on a C line.
+- Limits: on Windows, git's line-ending conversion should fail the byte-for-byte artifact tests (lrusso3; a precaution, his own run passed all 90): `.gitattributes` keeps LF everywhere (PR #8), and a test names the cause if not.
+- Question, will M5 programs open on a meaningful cycle? (suzhao): yes, by the same rule: the first branch or plain jump back within a function (calls and returns do not count), else the first cycle on a C line.
+
+A review panel of six agents (`.claude/agents/`) then reviewed this round;
+every finding that stood is fixed, finding by finding in the work log.
 
 ## Architecture and the backend/frontend boundary
 
