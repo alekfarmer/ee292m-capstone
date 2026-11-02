@@ -34,6 +34,7 @@ from app.models import (
     ModuleView,
     ProgramArtifact,
     SourceLine,
+    StartCycle,
     TraceArtifact,
     TraceSignal,
     TraceVerification,
@@ -371,6 +372,15 @@ def get_cycle_view(
     index = views.trace_index(_artifact(TRACE_FILE, program_dir(art_dir, program)))
     listing = get_program(art_dir, program)
     return views.cycle_view(n, listing, get_golden(art_dir, program), index)
+
+
+def get_start_cycle(art_dir: Path = ARTIFACTS_DIR, program: str = DEFAULT_PROGRAM) -> StartCycle:
+    """GET /api/start: the cycle the page opens on, and why.
+
+    Raises:
+        KeyError: no such program.
+    """
+    return views.program_start(get_program(art_dir, program), get_golden(art_dir, program))
 
 
 def get_module_view(

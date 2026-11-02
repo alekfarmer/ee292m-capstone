@@ -171,3 +171,32 @@ def test_out_of_range_requests_are_key_errors(fresh_dir: Path) -> None:
         pipeline.get_module_view("top.nothing", 0, fresh_dir)
     with pytest.raises(KeyError):
         pipeline.get_module_view("top.rv.dp", 10_000, fresh_dir)
+
+
+# --- where the page opens -------------------------------------------------------
+
+
+def test_the_page_opens_on_the_first_sum_line(fresh_dir: Path) -> None:
+    """For sum.c, the start cycle is the first `sum += i`, where every pane lines up."""
+    start = pipeline.get_start_cycle(fresh_dir)
+    view = pipeline.get_cycle_view(start.cycle, fresh_dir)
+    assert (start.cycle, view.text, view.c_line) == (11, "add a0,a0,a5", 4)
+
+
+def test_the_start_cycle_is_where_the_program_first_loops_back(fresh_dir: Path) -> None:
+    """Re-derived from Spike's log: the first backward jump between two C-line cycles."""
+    program = pipeline.get_program(fresh_dir)
+    golden = pipeline.get_golden(fresh_dir)
+    line_of = {line.addr: line.c_line for line in program.asm}
+    pcs = [int(e.pc, 16) for e in golden.entries]
+    on_c = [line_of[e.pc] is not None for e in golden.entries]
+    expected = next(
+        n for n in range(1, len(pcs)) if pcs[n] < pcs[n - 1] and on_c[n - 1] and on_c[n]
+    )
+    assert pipeline.get_start_cycle(fresh_dir).cycle == expected
+
+
+def test_without_a_loop_the_start_is_the_first_c_line() -> None:
+    assert views.start_cycle([0x0, 0x4, 0x8, 0xC], [None, None, 3, 4]).cycle == 2
+    assert views.start_cycle([0x0, 0x4], [None, None]).cycle == 0
+    assert views.start_cycle([0x0, 0x4, 0x8, 0x4], [None, 3, 3, 3]).cycle == 3

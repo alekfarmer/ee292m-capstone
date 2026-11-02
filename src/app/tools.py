@@ -5,9 +5,10 @@ gcc, binutils, Spike, Yosys, Icarus and Chromium are all started from here
 it comes); tests/test_architecture.py fails if another module does it itself.
 """
 
+import os
 import subprocess
 import threading
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 
 from app.errors import ToolError
@@ -19,10 +20,13 @@ def run_tool(
     args: Sequence[str | Path],
     *,
     cwd: Path | None = None,
+    env: Mapping[str, str] | None = None,
     timeout: float = DEFAULT_TIMEOUT_S,
     check: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     """Run ``args`` (never through a shell) and return the completed process.
+
+    ``env`` adds to (or overrides) this process's environment.
 
     Raises:
         ToolError: the tool is missing, timed out, or (if ``check``) exited non-zero.
@@ -32,6 +36,7 @@ def run_tool(
         proc = subprocess.run(  # noqa: S603 - argv list, no shell
             argv,
             cwd=cwd,
+            env=_environment(env),
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -47,6 +52,10 @@ def run_tool(
     return proc
 
 
+def _environment(extra: Mapping[str, str] | None) -> dict[str, str] | None:
+    return None if extra is None else {**os.environ, **extra}
+
+
 class ToolStream:
     """A running tool whose stderr is read line by line, as it is written.
 
@@ -55,8 +64,15 @@ class ToolStream:
     still running. A watchdog kills it after ``timeout`` seconds regardless.
     """
 
-    def __init__(self, args: Sequence[str | Path], *, timeout: float) -> None:
-        """Start ``args`` (never through a shell).
+    def __init__(
+        self,
+        args: Sequence[str | Path],
+        *,
+        timeout: float,
+        cwd: Path | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> None:
+        """Start ``args`` (never through a shell); ``env`` adds to this environment.
 
         Raises:
             ToolError: the tool is missing.
@@ -65,6 +81,8 @@ class ToolStream:
         try:
             self._proc = subprocess.Popen(  # noqa: S603 - argv list, no shell
                 self.argv,
+                cwd=cwd,
+                env=_environment(env),
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,

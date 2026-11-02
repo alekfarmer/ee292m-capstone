@@ -73,3 +73,10 @@ def test_programs_are_listed_and_chosen_by_name() -> None:
     view = client.get("/api/view/top.rv.dp", params={"cycle": 0, "program": "sum"})
     assert view.status_code == 200
     assert client.get("/api/cycle/0", params={"program": "nope"}).status_code == 404
+
+
+def test_start_cycle_served_and_unknown_program_is_404() -> None:
+    body = client.get("/api/start").json()
+    assert body["cycle"] == 11
+    assert body["reason"]
+    assert client.get("/api/start?program=nope").status_code == 404
