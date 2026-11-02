@@ -78,5 +78,5 @@ def test_programs_are_listed_and_chosen_by_name() -> None:
 def test_start_cycle_served_and_unknown_program_is_404() -> None:
     body = client.get("/api/start").json()
     assert body["cycle"] == 11
-    assert body["reason"]
+    assert body["reason"] == "the first time the program loops back"
     assert client.get("/api/start?program=nope").status_code == 404

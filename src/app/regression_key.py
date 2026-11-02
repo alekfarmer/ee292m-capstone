@@ -2,10 +2,19 @@
 
 Each plant is one small text edit to a copy of the repository. ``make
 regression`` applies it and runs the copy through the same stages a developer
-would (``make artifacts``, then ``make test``, then the smoke check against a
-server started from the copy). The plant behaves as the key says when the
-first stage to fail is ``caught_at`` and its output contains ``message``.
-A plant with ``caught_at=None`` is a known blind spot: every stage must pass.
+would after an edit (``make artifacts``, then ``make test``, then the smoke
+check against a server started from the copy). The plant behaves as the key
+says when the first stage to fail is ``caught_at`` and its output contains
+``message``.
+
+A plant with ``caught_at=None`` is a known blind spot: every stage must pass,
+and the regenerated artifacts must differ from the committed ones, which
+shows the edit reached the design rather than doing nothing.
+
+Because artifacts are regenerated first, the "committed artifact is up to
+date" tests compare the copy with itself here. They catch an edit made
+without ``make artifacts``; this harness asks the harder question of what
+catches a defect once the artifacts are rebuilt from it.
 """
 
 from dataclasses import dataclass
@@ -40,7 +49,8 @@ PLANTS: tuple[Plant, ...] = (
         message="cycle 11: hardware is at pc=0x8000004c",
         why=(
             "Gate level and RTL run the same wrong design, so they agree; only the "
-            "comparison with Spike sees the loop exit after one pass."
+            "comparison with Spike sees the loop exit before its first pass (bge 10, 1 "
+            "falls through, so the body never runs)."
         ),
     ),
     Plant(
@@ -70,6 +80,19 @@ PLANTS: tuple[Plant, ...] = (
         ),
     ),
     Plant(
+        name="start_one_cycle_late",
+        defect="the backend opens the page one cycle after the loop closes",
+        file="src/app/views.py",
+        old="return StartCycle(cycle=n, reason=LOOPS_BACK)",
+        new="return StartCycle(cycle=n + 1, reason=LOOPS_BACK)",
+        caught_at="tests",
+        message="FAILED tests/test_m3_views.py::test_the_page_opens_on_the_first_sum_line",
+        why=(
+            "No hardware changes, so artifacts pass; the views tests pin sum.c's start "
+            "to cycle 11, the first add a0,a0,a5."
+        ),
+    ),
+    Plant(
         name="sra_as_srl",
         defect="the shifter's arithmetic right shift fills with 0s instead of the sign bit",
         file="backend/rtl/shifter.sv",
@@ -78,9 +101,12 @@ PLANTS: tuple[Plant, ...] = (
         caught_at=None,
         message="",
         why=(
-            "A known blind spot: sum.c never runs sra, and gate level and RTL agree on "
-            "the wrong design, so nothing fails. Programs that exercise every "
-            "instruction come with M5."
+            "A known blind spot. sum.c never runs an sra instruction, but the shifter "
+            "computes y_sra every cycle, so the rebuilt trace does change (cycle 55: "
+            "0x80000020 >> 16 gives 0x00008000, not 0xffff8000). Nothing notices: "
+            "Spike compares only pc, instruction and register writes, and gate level "
+            "and RTL agree on the wrong design. Programs that run every instruction "
+            "come with M5."
         ),
     ),
 )

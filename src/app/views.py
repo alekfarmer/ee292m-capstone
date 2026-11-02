@@ -21,6 +21,7 @@ from app.decode import ABI_NAMES
 from app.errors import PipelineError
 from app.models import (
     AdderCaseValues,
+    AsmLine,
     Bit,
     Breadcrumb,
     CycleView,
@@ -122,29 +123,73 @@ def _line_runs(c_lines: list[int | None]) -> list[tuple[int, int]]:
     return runs
 
 
-def start_cycle(pcs: list[int], c_lines: list[int | None]) -> StartCycle:
+LOOPS_BACK = "the first time the program loops back"
+FIRST_C_LINE = "the first cycle that runs a line of C"
+FIRST_CYCLE = "the first cycle"
+
+
+@dataclass(frozen=True)
+class Step:
+    """One cycle of a run, as the start-cycle rule sees it.
+
+    ``local_jump`` is true for an instruction that can close a loop: a
+    conditional branch, or a ``jal`` that saves no return address. Calls
+    (``jal ra``) and returns (``jalr``) are not loops.
+    """
+
+    pc: int
+    c_line: int | None
+    function: str
+    local_jump: bool
+
+
+def can_close_a_loop(line: AsmLine) -> bool:
+    """Whether ``line`` is a branch or a plain jump (not a call or a return)."""
+    return line.format == "B" or line.text.startswith("jal zero,")
+
+
+def start_cycle(run: list[Step]) -> StartCycle:
     """The cycle the page opens on, for any program.
 
-    Start-up code (no C line) is a poor first screen, and the first pass through
-    a loop only sets it up, so the page opens where the program first loops
-    back: a jump to a lower address between two cycles on C lines (for
-    `sum.c`, the first `sum += i`). Without a loop, it opens on the first cycle
-    on a C line, and failing that on cycle 0.
+    Start-up code (no C line) is a poor first screen, so the page opens where
+    the program first loops back: the cycle after a branch or plain jump to a
+    lower address in the same function, both cycles on C lines. Calls and
+    returns do not count. For ``sum.c`` (and any loop GCC rotates, test at the
+    bottom) that is the first pass through the loop body; for a loop with its
+    test at the top it is the second test. Without a loop, it opens on the
+    first cycle on a C line, and failing that on cycle 0.
     """
-    for n in range(1, len(pcs)):
-        if pcs[n] < pcs[n - 1] and c_lines[n - 1] is not None and c_lines[n] is not None:
-            return StartCycle(cycle=n, reason="the first time the program loops back")
-    first = next((n for n, line in enumerate(c_lines) if line is not None), None)
+    for n in range(1, len(run)):
+        jump, there = run[n - 1], run[n]
+        if (
+            jump.local_jump
+            and there.pc < jump.pc
+            and there.function == jump.function
+            and jump.c_line is not None
+            and there.c_line is not None
+        ):
+            return StartCycle(cycle=n, reason=LOOPS_BACK)
+    first = next((n for n, step in enumerate(run) if step.c_line is not None), None)
     if first is not None:
-        return StartCycle(cycle=first, reason="the first cycle that runs a line of C")
-    return StartCycle(cycle=0, reason="the first cycle")
+        return StartCycle(cycle=first, reason=FIRST_C_LINE)
+    return StartCycle(cycle=0, reason=FIRST_CYCLE)
 
 
 def program_start(program: ProgramArtifact, golden: GoldenArtifact) -> StartCycle:
-    """The start cycle of one program run (see :func:`start_cycle`)."""
-    line_of = {line.addr: line.c_line for line in program.asm}
-    pcs = [int(e.pc, 16) for e in golden.entries]
-    return start_cycle(pcs, [line_of[e.pc] for e in golden.entries])
+    """The start cycle of one program run (see :func:`start_cycle`).
+
+    Raises:
+        PipelineError: Spike ran a pc that is not in the program's listing.
+    """
+    line_at = {line.addr: line for line in program.asm}
+    run = []
+    for n, entry in enumerate(golden.entries):
+        line = line_at.get(entry.pc)
+        if line is None:
+            raise PipelineError(f"cycle {n}: Spike ran pc={entry.pc}, which is not in the listing")
+        step = Step(int(entry.pc, 16), line.c_line, line.function, can_close_a_loop(line))
+        run.append(step)
+    return start_cycle(run)
 
 
 def cycle_view(

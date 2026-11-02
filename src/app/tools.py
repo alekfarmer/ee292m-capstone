@@ -71,25 +71,33 @@ class ToolStream:
         timeout: float,
         cwd: Path | None = None,
         env: Mapping[str, str] | None = None,
+        log: Path | None = None,
     ) -> None:
         """Start ``args`` (never through a shell); ``env`` adds to this environment.
+
+        With ``log``, the tool's stdout and stderr go to that file instead (for a
+        server nobody reads while it runs, whose pipe would otherwise fill up).
 
         Raises:
             ToolError: the tool is missing.
         """
         self.argv = [str(a) for a in args]
+        sink = log.open("w") if log else None
         try:
             self._proc = subprocess.Popen(  # noqa: S603 - argv list, no shell
                 self.argv,
                 cwd=cwd,
                 env=_environment(env),
                 stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
+                stdout=sink or subprocess.DEVNULL,
+                stderr=sink or subprocess.PIPE,
                 text=True,
             )
         except FileNotFoundError as exc:
             raise ToolError(f"tool not found: {self.argv[0]} (is the image built?)") from exc
+        finally:
+            if sink:
+                sink.close()  # the child holds its own copy
         self._watchdog = threading.Timer(timeout, self._proc.kill)
         self._watchdog.start()
 
@@ -111,6 +119,10 @@ class ToolStream:
         # SIGPIPE instead of exiting with its own status.
         for line in self._proc.stderr:  # noqa: UP028
             yield line
+
+    def running(self) -> bool:
+        """Whether the tool is still running."""
+        return self._proc.poll() is None
 
     def stop(self) -> None:
         """Kill the tool (if running) and wait for it."""

@@ -32,24 +32,44 @@ def check(base: str) -> tuple[list[str], str]:
         problems.append("adder view has no SVG")
     if golden.get("a0_at_halt") != "0x00000037":
         problems.append(f"Spike a0 at halt is {golden.get('a0_at_halt')}, expected 0x00000037")
+    problems.extend(_check_halt_store(base, trace.get("cycles")))
     with urllib.request.urlopen(base + "/", timeout=10) as resp:  # noqa: S310 - local URL
         if b"<title>" not in resp.read():
             problems.append("page did not load")
     problems.extend(check_rendered_page(base + "/"))
     start = fetch(base, "/api/start")
-    opening = fetch(base, f"/api/cycle/{start['cycle']}") if isinstance(start, dict) else None
+    if not isinstance(start, dict) or not isinstance(start.get("cycle"), int):
+        problems.append(f"/api/start gave {start}")
+        return problems, ""
+    opening = fetch(base, f"/api/cycle/{start['cycle']}")
     if not isinstance(opening, dict) or opening.get("c_line") is None:
         problems.append(f"the start cycle {start} is not on a line of C")
         return problems, ""
     problems.extend(
-        check_first_screen(opening["cycle"], opening["asm_index"], opening["c_line"], base + "/")
+        check_first_screen(
+            opening["cycle"], opening["asm_index"], opening["c_line"], start["reason"], base + "/"
+        )
     )
     summary = (
-        "5 + 3 = 0x00000008 on the gates, a0 = 55 in Spike, "
+        "5 + 3 = 0x00000008 on the gates, a0 = 55 in Spike and in the core's halt store, "
         f"{trace['cycles']}-cycle trace, page renders the datapath with pc = 0x80000000 "
         f"and opens on cycle {opening['cycle']} with its C line lit"
     )
     return problems, summary
+
+
+def _check_halt_store(base: str, cycles: object) -> list[str]:
+    """The core's own a0 = 55: its last cycle stores (a0 << 1) | 1 to tohost."""
+    if not isinstance(cycles, int) or cycles < 1:
+        return [f"trace has {cycles} cycles"]
+    top = fetch(base, f"/api/view/top?cycle={cycles - 1}")
+    edges = top.get("edges", []) if isinstance(top, dict) else []
+    stored = {int(e["value"], 16) for e in edges if e.get("target_port") == "dwdata"}
+    if stored != {(55 << 1) | 1}:
+        return [
+            f"the core's halt store carries {sorted(map(hex, stored))}, expected 0x6f (a0 = 55)"
+        ]
+    return []
 
 
 def main(argv: list[str] | None = None) -> int:

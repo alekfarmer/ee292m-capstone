@@ -13,7 +13,8 @@ Makefile. Work is on branch `review-round4`.
 | --- | --- |
 | 2026-10-27 | Su's review; by email I accepted the main suggestion (open on `sum += i`, add a "start here" sentence) |
 | 2026-10-30 | Logan could not run the project on Windows; `.gitattributes` and Windows support built and merged (PR #8), then his review of the merged version recorded the finding |
-| 2026-11-01 | Plan approved, with a prebuilt image in GitHub's registry instead of a slimmer local image; everything below built and tested |
+| 2026-11-01 | Plan approved, with a prebuilt image in GitHub's registry instead of a slimmer local image; findings 1-7 built and tested |
+| 2026-11-02 | A panel of six agents reviewed the branch; every finding that stood was fixed (see "Review panel" below) |
 
 ## Finding by finding
 
@@ -24,18 +25,21 @@ no C line, so the first screen showed the one place where the layers do not
 line up.
 
 **What changed.** The backend now chooses the opening cycle
-(`views.start_cycle`, served by the new `GET /api/start`). The rule works for
-any program, not just `sum.c`: the first time the program loops back (a jump
-to a lower address between two cycles on C lines), else the first cycle on a
-C line, else cycle 0. For `sum.c` that is cycle 11, the first
+(`views.start_cycle`, served by the new `GET /api/start`). Nothing in the rule
+is specific to `sum.c`: the first time the program loops back (a branch or
+plain jump to a lower address in the same function, both cycles on C lines;
+calls and returns do not count), else the first cycle on a C line, else cycle
+0. For `sum.c` that is cycle 11, the first
 `add a0,a0,a5` (`sum += i`): the C line, the instruction, its fields and the
 ALU (0x0 + 0x1 = 0x1) all light up together. A cycle named in the URL still
 wins.
 
 **Tests.** Four new tests:
 - `sum.c` opens on cycle 11 at `add a0,a0,a5`, C line 4.
-- The rule, re-derived independently from Spike's log, matches.
-- The two fallbacks work on made-up runs.
+- The rule's answer is the cycle after the loop's `bge` is first taken
+  (found by hand from the listing).
+- Made-up runs: a loop, calls and returns that are not loops, a missing C
+  line on either side of the jump, and both fallbacks, each with its reason.
 - `/api/start` serves the cycle and returns 404 for an unknown program.
 
 The four tests failed before the change (there was no `/api/start`). The
@@ -79,8 +83,8 @@ keep them as an automatic check.
   - Every wire drawn as 0 is caught only by the smoke check, "the drawn pc
     wire does not show 0x80000000", because every backend number is still
     right.
-- **Speed.** All four plants take about 15 seconds, so CI runs it on every
-  pull request, on both architectures.
+- **Speed.** All five plants take about 30 seconds (26 s measured), so CI
+  runs it on every pull request, on both architectures.
 - **Drift.** `tests/test_regression_key.py` fails in `make test` if a plant's
   text no longer occurs exactly once, so the key can't silently stop matching
   the code.
@@ -99,12 +103,17 @@ still pass, and one tripwire any error would move.
 
 **What changed.**
 - **The wrong program** is in the answer key as an expected miss: `sra`
-  shifting in 0s like `srl`. `sum.c` never runs `sra`, and the gate level and
-  the RTL agree on the wrong design, so every stage passes. `make regression`
-  checks that this stays true, so the blind spot stays written down until M5
-  brings programs that exercise every instruction.
-- **The tripwire** is a0 = 55: Spike's exit code, the core's a0 at its halt
-  and the smoke check.
+  shifting in 0s like `srl`. `sum.c` never runs an `sra` instruction, but the
+  shifter computes `y_sra` every cycle, so the wrong value is in the rebuilt
+  trace (cycle 55: 0x80000020 >> 16 gives 0x00008000, not 0xffff8000).
+  Nothing notices: Spike compares only pc, instruction and register writes,
+  and the gate level and the RTL agree on the wrong design. `make regression`
+  checks that this stays true, and that the plant really changed the rebuilt
+  artifacts, so the blind spot stays written down until M5 brings programs
+  that run every instruction.
+- **The tripwire** is a0 = 55, checked two independent ways: Spike's exit
+  code, and the core's own halt store in the gate-level trace (in
+  `test_m2_trace.py`, and in the smoke check through the API).
 
 The README states both, with a table of the plants.
 
@@ -141,8 +150,9 @@ image already matches docker/ (239f5193da1c)". Before anything is published,
 
 ### 6. Limits: Windows line endings (lrusso3)
 
-**Finding.** On Windows, git's line-ending conversion makes the byte-for-byte
-artifact tests fail although nothing changed.
+**Finding.** On Windows, git's line-ending conversion should make the
+byte-for-byte artifact tests fail although nothing changed. This was Logan's
+prediction, and a precaution: in his own run all 90 tests passed.
 
 **What changed (PR #8, already merged).**
 - `.gitattributes` (`* text=auto eol=lf`) keeps LF line endings everywhere.
@@ -156,14 +166,153 @@ artifact tests fail although nothing changed.
 
 Yes. The start-cycle rule (finding 1) needs nothing specific to `sum.c`: a
 user's program opens on its first loop-back, or on its first cycle on a C
-line if it has no loop.
+line if it has no loop. Function calls and returns are not mistaken for
+loops (the review panel caught that the first version did).
+
+## Review panel
+
+After findings 1-7, six agents reviewed the branch (`.claude/agents/`), each in
+its own context with only the request, the diff and the commit messages:
+- five reviewers: manager, critic, domain expert, algorithms expert and test
+  engineer;
+- then a refuter, which checked every finding against the code and kept only
+  those that stood.
+
+Of 49 findings (many repeated across reviewers), 2 fell entirely and 5 in
+part. Every one that stood is fixed below. "Seen failing" means the new check
+failed on the old behaviour before the fix made it pass.
+
+### P1. The start-here sentence named the wrong cycle (manager, critic, algorithms)
+
+**Finding.** "It opened on cycle 11" was shown even when a link (or a reload,
+since every step writes the cycle into the URL) opened another cycle. The page
+check matched only the sentence's first words.
+
+**Fixed.** The page says why only when it chose the cycle itself. The checks
+are stricter:
+- `check_first_screen` compares the whole sentence with the backend's
+  reason, needs exactly one lit C line and one lit instruction (class names
+  parsed, so `not-current` no longer counts), and fails on an error message.
+- The linked-page check fails if a page opened at `#cycle=0` gives a reason.
+- `test_api` checks the reason's exact words.
+
+**Seen failing.** With the old sentence logic, smoke failed: "a page opened
+from a link still says why it opened where it did".
+
+### P2. Calls and returns counted as loops (critic, domain expert, algorithms)
+
+**Finding.** The rule counted any backward jump between C lines. In an M5
+program, a call to a function defined earlier, or a return to a caller placed
+earlier, would open the page there and call it a loop. The test said to
+re-derive the rule "independently" re-used the same predicate.
+
+**Fixed.**
+- The rule counts only a branch or a plain jump (`jal zero`) to a lower
+  address in the same function.
+- The copied test is gone. Instead, the `sum.c` start is found from the
+  listing (the cycle after the loop's `bge` is first taken).
+- Made-up runs cover:
+  - a call and a return, each to a lower address;
+  - a missing C line on either side of the jump (the guards were untested);
+  - a real "no loop" case (the old one contained a loop);
+  - every reason, word for word.
+- A pc that Spike ran but the listing lacks is now a 500 naming the cycle,
+  not a 404 "unknown program".
+
+**Seen failing.** With the old predicate restored,
+`test_calls_and_returns_are_not_loops` failed ("the first time the program
+loops back" instead of "the first cycle that runs a line of C").
+
+### P3. The `sra` blind spot had the wrong reason, and the tests stage could not fail (critic, domain expert, test engineer)
+
+**Finding.** `sum.c` does produce a wrong `y_sra` (cycle 55, `addi
+t0,t0,48`: 0x80000020 >> 16), and the committed-trace test would catch the
+bare edit. Inside `make regression`, the copy's artifacts are rebuilt first,
+so that test compares the copy with itself. No plant was caught at `tests`,
+and a blind spot passed even if the edit changed nothing.
+
+**Fixed.**
+- The answer key, README and section 4 above give the real reason: no check
+  compares that net with a model independent of the RTL.
+- The harness says why the artifacts are rebuilt first: it asks what catches
+  a defect once they are rebuilt.
+- A new plant, `start_one_cycle_late` (backend), is caught at `tests` by
+  `test_the_page_opens_on_the_first_sum_line`. The key's test now requires
+  every stage.
+- A blind spot must show that its rebuilt design artifacts changed (`sra`:
+  netlist, gate counts and trace).
+
+**Seen failing.** The `sra` plant with a comment-only edit: "FAIL ... no
+artifact changed, so the plant never reached the design".
+
+### P4. The harness's own judgement was untested, and it was fragile (test engineer, critic, algorithms)
+
+**Fixed.**
+- `make test` now checks how an outcome is judged: right stage with the wrong
+  message, wrong stage, not caught, and a blind spot that changed nothing or
+  was caught. It also checks `apply` on text found 0 or 2 times.
+- The copy's server writes to `server.log`, which is shown when its stage
+  fails. Before, the output was a pipe nobody read.
+- The harness stops waiting as soon as the server dies.
+- A stage that cannot run counts as failing there, and the other plants still
+  run.
+- Clearing an old copy is no longer allowed to fail silently. While
+  verifying, `rmtree(..., ignore_errors=True)` left a half-deleted copy, with
+  macOS conflict copies ("build 2") that look like iCloud syncing this
+  folder. The run then crashed one step later with a misleading error.
+
+### P5. Wrong or loose claims (domain expert, critic, manager)
+
+**Fixed.**
+- **`bge_as_blt`:** the loop exits *before* its first pass (bge 10, 1 falls
+  through), not after one.
+- **The tripwire** has two independent checks, not three. Smoke now reads
+  the core's own halt store, `(55 << 1) | 1` on `dwdata`, through the API
+  (seen failing when expecting 54). It no longer just reads Spike's value a
+  second time.
+- **Run time:** measured at 24-26 s for five plants. It was "about 15 s" in
+  two places and "minutes" in a third.
+- **Windows:** worded as Logan wrote it: a predicted failure and a
+  precaution; his run passed.
+- **`make pull`:** the README says an image exists only once CI has
+  published one. A tag means "built from the same `docker/` files", not
+  identical bytes: rebuilding the artifacts showed `toolchain.json` recording
+  Python 3.14.10, where the committed one said 3.14.8. The base image had
+  moved, so it is now committed as rebuilt, and every base image (Python,
+  Node, uv) is pinned by digest. `make base-digests` prints the current
+  digests for the next upgrade.
+- **The weekly from-scratch build** was not requested. It is kept and
+  explained in the README: once CI pulls, nothing else would notice drift in
+  the package archives.
+
+### P6. Smaller items (critic, test engineer)
+
+**Fixed.**
+- **Empty fingerprint:** `make build`, `pull` and `publish` stop if `docker/`
+  cannot be fingerprinted. Before, an empty tag matched a missing image and
+  the build was skipped. Seen failing with an empty tag and with a missing
+  input.
+- **Tag format:** the tag hashes each file's hash, so no two different file
+  sets can concatenate alike.
+- **`tests/test_image.py`** fails if the Dockerfile copies a file from
+  `docker/` that the fingerprint leaves out. Seen failing with `uv.lock`
+  removed from `IMAGE_INPUTS`.
+- **The pull failure message** points to docker's own reason, instead of
+  calling every failure "no matching image".
+
+**Fell (not changed).**
+- Smoke crashing on a broken `/api/start`: it still exits non-zero, so it
+  fails.
+- Putting `make regression` into `make verify`: it runs in CI on every pull
+  request, as approved.
 
 ## Verification
 
-- `make verify` is green: lint, 105 tests, and the smoke check ("... page
-  renders the datapath with pc = 0x80000000 and opens on cycle 11 with its C
-  line lit").
-- `make regression`: 4 of 4 plants behave as the answer key says.
+- `make verify` is green: lint, 123 tests, and the smoke check ("5 + 3 =
+  0x00000008 on the gates, a0 = 55 in Spike and in the core's halt store, ...
+  opens on cycle 11 with its C line lit").
+- `make regression`: 5 of 5 plants behave as the answer key says, twice in a
+  row, 24 s each.
 
 ## Not verified
 
@@ -173,5 +322,7 @@ line if it has no loop.
   without logging in. Until then, `make pull` fails with the message above,
   and CI builds from scratch.
 - **The CI workflow changes** run for the first time on this pull request.
+- **The harness's new failure paths** (a server that dies at start-up, a
+  stage that cannot run) were reasoned about, not planted.
 - **A newcomer seeing the new first screen.** That is the real test of
   findings 1 and 2. I checked the screenshot myself.

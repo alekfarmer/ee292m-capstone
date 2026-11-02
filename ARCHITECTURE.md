@@ -30,9 +30,9 @@ and result mux, the load/store unit, the PC adders, and the ALU's glue logic.
 
 ## Stack
 
-- Backend: Python 3.14 (base image pinned to the minor version,
-  `python:3.14-slim`, so it takes patch fixes but never a new language
-  version; never `latest` or `3`) and FastAPI, with typed request and response models; `/docs` is the
+- Backend: Python 3.14 (base image `python:3.14.10-slim-trixie`, pinned by
+  digest like every base image, so a tag moving upstream cannot change the
+  build; `make base-digests` prints the current digests when upgrading) and FastAPI, with typed request and response models; `/docs` is the
   contract.
 - Frontend: static HTML and JavaScript, with no build step for our own code.
   It uses whichever library suits the view (Plotly for plots, D3 for custom
@@ -129,14 +129,19 @@ Makefile  README.md  ARCHITECTURE.md  AGENTS.md  CLAUDE.md
 - Halt convention: `crt0.S` stores `(a0 << 1) | 1` to `tohost`. Spike exits
   with a0; the golden log ends at that store.
 - The start cycle (`views.start_cycle`, served by `/api/start`) is where the
-  program first loops back (a jump to a lower address between two cycles on
-  C lines), else the first cycle on a C line, else 0. It works for any
-  program, so M5's user programs open the same way.
+  program first loops back: the cycle after a branch or plain jump (`jal
+  zero`) to a lower address in the same function, both cycles on C lines.
+  Calls and returns do not count. Else the first cycle on a C line, else 0.
+  Nothing in it is specific to `sum.c`, so M5's user programs open the same
+  way. The page says why it opened there only when no link chose the cycle.
 - `make regression` copies the repository to
   `backend/build/regression/<plant>/`, makes one plant's edit there, and runs
   that copy's `app.cli artifacts`, `pytest` and `app.smoke` (against a server
-  from the copy on port 8001) until one fails. The answer key names the stage
-  and message that must catch each plant, or none for a known blind spot.
+  from the copy on port 8001, its output in the copy's `server.log`) until
+  one fails. The answer key names the stage and message that must catch each
+  plant, or none for a known blind spot, which must then still have changed
+  the rebuilt design artifacts. A stage that cannot run (a server that never
+  answers) counts as failing there; the other plants still run.
   `tests/test_regression_key.py` fails as soon as a plant's text no longer
   occurs exactly once, so the key cannot drift from the code silently.
 - `api.py` holds routes only. It also serves our page from `src/web/` and the
@@ -194,8 +199,12 @@ Everyday, the only ones a user needs:
 - `pull`: download the image CI built and verified for this checkout
   (`ghcr.io/alekfarmer/ee292m-capstone:<tag>`; set `IMAGE_REPO` to use
   another registry). The tag is a fingerprint of the files the image is built
-  from (the Dockerfile, both manifests and both locks), so a pulled image
-  always matches the checkout; with no match, it says to run `build`.
+  from (the Dockerfile, both manifests and both locks;
+  `tests/test_image.py` fails if the Dockerfile copies a file it does not
+  cover), so a pulled image was built from this checkout's `docker/`; with no
+  match, it says to run `build`. The base images are pinned by digest, but
+  some Debian packages are taken at their current version, so two builds of
+  one tag can still differ there.
 - `build`: build everything the project needs, into the image. Skipped when
   the image there already carries this checkout's fingerprint (compose labels
   every build with it), so a pulled image is never rebuilt.
@@ -221,7 +230,7 @@ While developing:
 - `smoke`: start the app, check a real API result (not just a status code),
   stop it again.
 - `regression`: plant each defect in the answer key and check that the stage
-  the key names catches it (`PLANT=name` for one), in about 15 seconds.
+  the key names catches it (`PLANT=name` for one), in about 30 seconds.
 - `logs` and `shell`: follow the app's output; open a shell inside the
   container.
 
@@ -232,6 +241,9 @@ Only when dependencies change:
   in `docker/uv.lock` and `docker/package-lock.json`, and commit each manifest
   with its lock. `build` uses only what the locks record, and says so, with
   this instruction, when a manifest and its lock disagree.
+- `base-digests`: print the digest of each base image the Dockerfile starts
+  from (by the tags in the Makefile's `BASE_IMAGES`), to pin when upgrading
+  one.
 
 CI only (`.github/workflows/verify.yml`):
 
