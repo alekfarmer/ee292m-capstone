@@ -10,7 +10,8 @@ from pathlib import Path
 import pytest
 
 from app import hardware, pipeline, views
-from app.models import ModuleView
+from app.errors import PipelineError
+from app.models import ModuleView, StartCycle
 from tests.svg_reading import read_sum
 from tests.test_m2_trace import decode
 
@@ -181,22 +182,81 @@ def test_the_page_opens_on_the_first_sum_line(fresh_dir: Path) -> None:
     start = pipeline.get_start_cycle(fresh_dir)
     view = pipeline.get_cycle_view(start.cycle, fresh_dir)
     assert (start.cycle, view.text, view.c_line) == (11, "add a0,a0,a5", 4)
+    assert start.reason == "the first time the program loops back"
 
 
-def test_the_start_cycle_is_where_the_program_first_loops_back(fresh_dir: Path) -> None:
-    """Re-derived from Spike's log: the first backward jump between two C-line cycles."""
+def test_the_start_cycle_follows_the_loops_back_edge(fresh_dir: Path) -> None:
+    """Read off the listing by hand: sum.c's loop closes with its one `bge`.
+
+    The start cycle is the one right after the first time that `bge` is taken,
+    and it lands on the loop body's first instruction.
+    """
     program = pipeline.get_program(fresh_dir)
     golden = pipeline.get_golden(fresh_dir)
-    line_of = {line.addr: line.c_line for line in program.asm}
-    pcs = [int(e.pc, 16) for e in golden.entries]
-    on_c = [line_of[e.pc] is not None for e in golden.entries]
-    expected = next(
-        n for n in range(1, len(pcs)) if pcs[n] < pcs[n - 1] and on_c[n - 1] and on_c[n]
-    )
-    assert pipeline.get_start_cycle(fresh_dir).cycle == expected
+    (bge,) = [line for line in program.asm if line.text.startswith("bge ")]
+    assert bge.immediate is not None and bge.immediate < 0  # a branch back
+    target = f"0x{int(bge.addr, 16) + bge.immediate:08x}"
+    taken = [
+        n + 1
+        for n, e in enumerate(golden.entries[:-1])
+        if e.pc == bge.addr and golden.entries[n + 1].pc == target
+    ]
+    assert pipeline.get_start_cycle(fresh_dir).cycle == taken[0]
+
+
+def step(pc: int, line: int | None, jump: bool = False, function: str = "main") -> views.Step:
+    """One made-up cycle for the start-cycle rule."""
+    return views.Step(pc=pc, c_line=line, function=function, local_jump=jump)
+
+
+def test_a_branch_back_is_a_loop() -> None:
+    run = [step(0x0, None), step(0x4, 3), step(0x8, 3, jump=True), step(0x4, 3)]
+    assert views.start_cycle(run) == StartCycle(cycle=3, reason=views.LOOPS_BACK)
+
+
+def test_calls_and_returns_are_not_loops() -> None:
+    # main at 0x10 calls a helper defined above it (0x0), which returns to 0x18.
+    helper_first = [
+        step(0x10, 5),
+        step(0x14, 5),  # jal ra,helper: not a local jump
+        step(0x0, 2, function="helper"),
+        step(0x4, 2, function="helper"),  # jalr: not a local jump
+        step(0x18, 6),
+    ]
+    assert views.start_cycle(helper_first).reason == views.FIRST_C_LINE
+    # main at 0x0 calls a helper defined below it (0x40); its return lands lower.
+    helper_after = [
+        step(0x0, 5),
+        step(0x40, 9, function="helper"),
+        step(0x44, 9, function="helper"),
+        step(0x4, 6),
+    ]
+    assert views.start_cycle(helper_after).reason == views.FIRST_C_LINE
+    # Even a plain jump back is not a loop if it leaves the function.
+    assert views.start_cycle([step(0x40, 9, True, "helper"), step(0x4, 6)]).cycle == 0
+
+
+def test_a_loop_back_needs_c_lines_on_both_sides() -> None:
+    from_startup = [step(0x10, None, jump=True), step(0x0, 3), step(0x4, 3), step(0x8, 3, True)]
+    assert views.start_cycle([*from_startup, step(0x4, 3)]).cycle == 4
+    into_startup = [step(0x10, 3, jump=True), step(0x0, None), step(0x4, 3, True), step(0x0, 3)]
+    assert views.start_cycle(into_startup).cycle == 3
 
 
 def test_without_a_loop_the_start_is_the_first_c_line() -> None:
-    assert views.start_cycle([0x0, 0x4, 0x8, 0xC], [None, None, 3, 4]).cycle == 2
-    assert views.start_cycle([0x0, 0x4], [None, None]).cycle == 0
-    assert views.start_cycle([0x0, 0x4, 0x8, 0x4], [None, 3, 3, 3]).cycle == 3
+    no_loop = [step(0x0, None), step(0x4, None), step(0x8, 3), step(0xC, 4)]
+    assert views.start_cycle(no_loop) == StartCycle(cycle=2, reason=views.FIRST_C_LINE)
+    no_c = [step(0x0, None), step(0x4, None)]
+    assert views.start_cycle(no_c) == StartCycle(cycle=0, reason=views.FIRST_CYCLE)
+    assert views.start_cycle([]) == StartCycle(cycle=0, reason=views.FIRST_CYCLE)
+
+
+def test_a_pc_missing_from_the_listing_is_an_error_not_an_unknown_program(
+    fresh_dir: Path,
+) -> None:
+    program = pipeline.get_program(fresh_dir)
+    golden = pipeline.get_golden(fresh_dir)
+    stray = golden.entries[3].model_copy(update={"pc": "0x00000000"})
+    broken = golden.model_copy(update={"entries": [*golden.entries[:3], stray]})
+    with pytest.raises(PipelineError, match="cycle 3: Spike ran pc=0x00000000"):
+        views.program_start(program, broken)
