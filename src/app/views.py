@@ -29,6 +29,7 @@ from app.models import (
     ModuleView,
     ProgramArtifact,
     RegisterWrite,
+    StartCycle,
     TraceArtifact,
     ViewEdge,
     ViewNode,
@@ -119,6 +120,31 @@ def _line_runs(c_lines: list[int | None]) -> list[tuple[int, int]]:
             runs.append((start, n))
             start = n
     return runs
+
+
+def start_cycle(pcs: list[int], c_lines: list[int | None]) -> StartCycle:
+    """The cycle the page opens on, for any program.
+
+    Start-up code (no C line) is a poor first screen, and the first pass through
+    a loop only sets it up, so the page opens where the program first loops
+    back: a jump to a lower address between two cycles on C lines (for
+    `sum.c`, the first `sum += i`). Without a loop, it opens on the first cycle
+    on a C line, and failing that on cycle 0.
+    """
+    for n in range(1, len(pcs)):
+        if pcs[n] < pcs[n - 1] and c_lines[n - 1] is not None and c_lines[n] is not None:
+            return StartCycle(cycle=n, reason="the first time the program loops back")
+    first = next((n for n, line in enumerate(c_lines) if line is not None), None)
+    if first is not None:
+        return StartCycle(cycle=first, reason="the first cycle that runs a line of C")
+    return StartCycle(cycle=0, reason="the first cycle")
+
+
+def program_start(program: ProgramArtifact, golden: GoldenArtifact) -> StartCycle:
+    """The start cycle of one program run (see :func:`start_cycle`)."""
+    line_of = {line.addr: line.c_line for line in program.asm}
+    pcs = [int(e.pc, 16) for e in golden.entries]
+    return start_cycle(pcs, [line_of[e.pc] for e in golden.entries])
 
 
 def cycle_view(

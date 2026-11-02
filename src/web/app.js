@@ -21,6 +21,7 @@ const els = {
   error: $("error"),
   slider: $("cycle"),
   cycleLabel: $("cycle-label"),
+  startReason: $("start-reason"),
   play: $("play"),
   speed: $("speed"),
   fit: $("fit"),
@@ -273,7 +274,11 @@ async function init() {
     state.cycles = golden.retired;
     els.slider.max = String(state.cycles - 1);
     renderSource(state.program);
-    const start = Math.min(Math.max(Number(hash.get("cycle")) || 0, 0), state.cycles - 1);
+    // Without a cycle in the URL, open where the backend says the layers line up.
+    const opening = await getJson(`/api/start?${programQuery()}`);
+    els.startReason.textContent = `It opened on cycle ${opening.cycle}, ${opening.reason}.`;
+    const asked = hash.has("cycle") ? Number(hash.get("cycle")) : opening.cycle;
+    const start = Math.min(Math.max(asked || 0, 0), state.cycles - 1);
     await show(start, hash.get("view") || DEFAULT_VIEW);
   } catch (err) {
     showError(err.message);

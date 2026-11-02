@@ -241,6 +241,13 @@ class CycleView(Strict):
     halt: bool
 
 
+class StartCycle(Strict):
+    """Where the page opens: a cycle where the C, assembly and hardware line up."""
+
+    cycle: int = Field(ge=0)
+    reason: str = Field(description="why this cycle, in a few words")
+
+
 class Breadcrumb(Strict):
     """One level of the module hierarchy above (and including) a view."""
 

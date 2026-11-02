@@ -4,7 +4,7 @@ import json
 import sys
 import urllib.request
 
-from app.pagecheck import check_rendered_page
+from app.pagecheck import check_first_screen, check_rendered_page
 
 BASE = "http://127.0.0.1:8000"
 
@@ -36,12 +36,22 @@ def main() -> int:
         if b"<title>" not in resp.read():
             problems.append("page did not load")
     problems.extend(check_rendered_page())
+    start = fetch("/api/start")
+    opening = fetch(f"/api/cycle/{start['cycle']}") if isinstance(start, dict) else None
+    if not isinstance(opening, dict) or opening.get("c_line") is None:
+        problems.append(f"the start cycle {start} is not on a line of C")
+        opening = {"cycle": None}
+    else:
+        problems.extend(
+            check_first_screen(opening["cycle"], opening["asm_index"], opening["c_line"])
+        )
     for p in problems:
         print(f"smoke: FAIL: {p}", file=sys.stderr)
     if not problems:
         print(
             "smoke: ok (5 + 3 = 0x00000008 on the gates, a0 = 55 in Spike, "
-            f"{trace['cycles']}-cycle trace, page renders the datapath with pc = 0x80000000)"
+            f"{trace['cycles']}-cycle trace, page renders the datapath with pc = 0x80000000 "
+            f"and opens on cycle {opening['cycle']} with its C line lit)"
         )
     return 1 if problems else 0
 

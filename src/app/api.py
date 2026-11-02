@@ -18,6 +18,7 @@ from app.models import (
     Health,
     ModuleView,
     ProgramArtifact,
+    StartCycle,
     TraceArtifact,
 )
 from app.paths import VENDOR_DIR, WEB_DIR
@@ -83,6 +84,15 @@ def golden(program: ProgramName = pipeline.DEFAULT_PROGRAM) -> GoldenArtifact:
     """Spike's commit log for a program (M1)."""
     try:
         return pipeline.get_golden(program=program)
+    except KeyError:
+        raise _unknown_program(program) from None
+
+
+@app.get("/api/start")
+def start(program: ProgramName = pipeline.DEFAULT_PROGRAM) -> StartCycle:
+    """The cycle the page opens on, where the C, assembly and hardware line up (M3)."""
+    try:
+        return pipeline.get_start_cycle(program=program)
     except KeyError:
         raise _unknown_program(program) from None
 
