@@ -33,9 +33,9 @@ SHOTS = {
 }
 
 
-def dump_dom(fragment: str = "") -> str:
-    """The page's DOM after its scripts have run."""
-    proc = run_tool([CHROMIUM, *_FLAGS, "--dump-dom", BASE + fragment], timeout=120)
+def dump_dom(fragment: str = "", base: str = BASE) -> str:
+    """The page's DOM at ``base`` after its scripts have run."""
+    proc = run_tool([CHROMIUM, *_FLAGS, "--dump-dom", base + fragment], timeout=120)
     return proc.stdout
 
 
@@ -55,9 +55,9 @@ def screenshot(fragment: str, out: Path, width: int = 1600, height: int = 1700) 
     return out
 
 
-def check_rendered_page() -> list[str]:
+def check_rendered_page(base: str = BASE) -> list[str]:
     """Problems with the rendered page at cycle 0 (empty list if it is right)."""
-    dom = dump_dom("#cycle=0&view=top.rv.dp")
+    dom = dump_dom("#cycle=0&view=top.rv.dp", base)
     problems = []
     if 'class="netview"' not in dom:
         problems.append("the datapath drawing did not render")
@@ -80,12 +80,12 @@ def _has_tag(dom: str, tag: str, *attrs: str) -> bool:
     return any(all(a in m for a in attrs) for m in re.findall(rf"<{tag}\b[^>]*>", dom))
 
 
-def check_first_screen(cycle: int, asm_index: int, c_line: int) -> list[str]:
+def check_first_screen(cycle: int, asm_index: int, c_line: int, base: str = BASE) -> list[str]:
     """Problems with the page opened without a URL fragment (empty list if right).
 
     It should open on ``cycle``, with its C line and its instruction highlighted.
     """
-    dom = dump_dom()
+    dom = dump_dom("", base)
     problems = []
     if f"cycle {cycle} /" not in dom:
         problems.append(f"the page did not open on cycle {cycle}")

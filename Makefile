@@ -31,11 +31,13 @@ TOOLS   := $(COMPOSE) --profile tools
 
 # Extra arguments for pytest, e.g. `make test ARGS="-k adder"`.
 ARGS ?=
+# Plants for `make regression`, e.g. `make regression PLANT=bge_as_blt` (default: all).
+PLANT ?=
 
 LOCK_HINT := A manifest and its lock may disagree. After changing docker/pyproject.toml \
 or docker/package.json, run 'make lock' and commit each manifest with its lock.
 
-.PHONY: help build up down verify clean test lint fmt smoke logs shell lock artifacts synth-log preview screenshot
+.PHONY: help build up down verify clean test lint fmt smoke logs shell lock artifacts synth-log preview screenshot regression
 
 help: ## List the targets
 	@echo "Everyday:"
@@ -52,6 +54,7 @@ help: ## List the targets
 	@echo "  lint       Check the code, changing nothing"
 	@echo "  fmt        Rewrite the code into the standard format"
 	@echo "  smoke      Start the app, check a real API result, stop it"
+	@echo "  regression Plant each defect in the answer key and check what catches it (PLANT=name)"
 	@echo "  logs       Follow the app's output"
 	@echo "  shell      Open a shell inside the container"
 	@echo "Only when dependencies change:"
@@ -98,6 +101,9 @@ lint: ## Check the code
 
 fmt: ## Format the code
 	$(RUN) sh -c 'ruff format src tests && ruff check --fix src tests'
+
+regression: ## Planted defects caught as the answer key says (src/app/regression_key.py)
+	$(RUN) python -m app.regression $(PLANT)
 
 smoke: ## Start the app, check a real result, stop it
 	$(COMPOSE) up -d --wait app
