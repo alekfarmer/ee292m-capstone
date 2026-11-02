@@ -29,9 +29,13 @@ export COMPOSE_PROJECT_NAME HOST_UID HOST_GID
 # image is built from, so a pulled image always matches this checkout's docker/.
 IMAGE_REPO ?= ghcr.io/alekfarmer/ee292m-capstone
 IMAGE_INPUTS := docker/Dockerfile docker/pyproject.toml docker/uv.lock docker/package.json docker/package-lock.json
-IMAGE_TAG := $(shell cat $(IMAGE_INPUTS) | git hash-object --stdin | cut -c1-12)
+IMAGE_TAG := $(shell git hash-object $(IMAGE_INPUTS) | git hash-object --stdin | cut -c1-12)
+IMAGE_MISSING := $(filter-out $(wildcard $(IMAGE_INPUTS)),$(IMAGE_INPUTS))
 IMAGE := $(COMPOSE_PROJECT_NAME)-app
 export IMAGE_TAG
+# Stops a recipe when docker/ cannot be fingerprinted, rather than tagging with ''.
+CHECK_TAG = @if [ -n "$(IMAGE_MISSING)" ] || [ -z "$(IMAGE_TAG)" ]; then \
+  echo "Cannot fingerprint docker/ (missing: $(or $(IMAGE_MISSING),none); is git installed?)"; exit 1; fi
 
 COMPOSE := docker compose -f docker/compose.yaml
 RUN     := $(COMPOSE) run --rm --no-deps app
@@ -73,10 +77,15 @@ help: ## List the targets
 	@echo "  publish, publish-manifest  Push the verified image to $(IMAGE_REPO)"
 
 pull: ## Download the prebuilt image that matches docker/ (tag IMAGE_TAG)
-	@docker pull $(IMAGE_REPO):$(IMAGE_TAG) || { echo; echo "No prebuilt image matches this checkout's docker/ (tag $(IMAGE_TAG)); run 'make build'."; exit 1; }
+	$(CHECK_TAG)
+	@docker pull $(IMAGE_REPO):$(IMAGE_TAG) || { echo; \
+	  echo "Could not pull $(IMAGE_REPO):$(IMAGE_TAG); docker's reason is above."; \
+	  echo "If the image is not found, none is published for this checkout's docker/ (yet, or you changed it): run 'make build'."; \
+	  exit 1; }
 	docker tag $(IMAGE_REPO):$(IMAGE_TAG) $(IMAGE)
 
 build: ## Build the image, unless the one there already matches docker/
+	$(CHECK_TAG)
 	@if [ "$$(docker image inspect --format '{{index .Config.Labels "ee292m.image-tag"}}' $(IMAGE) 2>/dev/null)" = "$(IMAGE_TAG)" ]; then \
 	  echo "build: the image already matches docker/ ($(IMAGE_TAG))"; \
 	else \
@@ -140,10 +149,12 @@ lock: ## Record exact dependency versions
 	$(TOOLS) run --rm --build node-tool npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
 publish: ## CI only: push this machine's verified image as IMAGE_TAG-<arch>
+	$(CHECK_TAG)
 	arch="$$(docker version --format '{{.Server.Arch}}')" \
 	 && docker tag $(IMAGE) $(IMAGE_REPO):$(IMAGE_TAG)-$$arch \
 	 && docker push $(IMAGE_REPO):$(IMAGE_TAG)-$$arch
 
 publish-manifest: ## CI only: one name for both architectures' images
+	$(CHECK_TAG)
 	docker buildx imagetools create -t $(IMAGE_REPO):$(IMAGE_TAG) \
 	  $(IMAGE_REPO):$(IMAGE_TAG)-amd64 $(IMAGE_REPO):$(IMAGE_TAG)-arm64
