@@ -64,7 +64,7 @@ def test_the_pipeline_steps_do_not_call_back_up() -> None:
     """The steps behind the facade never import the facade or the adapters."""
     steps = ("software", "hardware", "simulate", "views", "render", "decode", "vcd", "tools")
     for step in steps:
-        upward = app_imports(step) & {"pipeline", "api", "cli", "smoke", "pagecheck"}
+        upward = app_imports(step) & {"pipeline", "api", "cli", "smoke", "pagecheck", "regression"}
         assert not upward, f"{step}.py imports {sorted(upward)}"
 
 

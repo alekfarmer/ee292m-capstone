@@ -5,6 +5,10 @@ services:
     build:
       context: .
       target: final
+      # `make build` skips the build when this matches the fingerprint of docker/.
+      labels:
+        ee292m.image-tag: ${IMAGE_TAG:-unset}
+        org.opencontainers.image.source: https://github.com/alekfarmer/ee292m-capstone
     image: ${COMPOSE_PROJECT_NAME}-app
     user: "${HOST_UID}:${HOST_GID}"
     environment:

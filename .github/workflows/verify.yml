@@ -1,22 +1,33 @@
-# The gate, from a fresh clone, on every pull request and on main.
+# The gate, from a fresh clone, on every pull request and on main; and the
+# prebuilt image that `make pull` downloads.
 #
-# Linux runs the whole `make verify` natively on both architectures the image
-# supports. GitHub's Windows machines cannot run Linux containers, so the
-# Windows job checks what differs there: line endings and the Makefile under
-# Git Bash.
+# Linux runs the whole `make verify`, then `make regression`, natively on both
+# architectures the image supports. When docker/ is unchanged, the job first
+# pulls the image already published for it, so only changes to docker/ pay for
+# the 20-30 minute build; a weekly run always builds from scratch, to catch
+# drift in the archives the build downloads from.
+#
+# On main, each architecture's image is published only after it passed
+# `make verify` and `make regression`, then both are joined under one name,
+# ghcr.io/alekfarmer/ee292m-capstone:<fingerprint of docker/>.
+#
+# GitHub's Windows machines cannot run Linux containers, so the Windows job
+# checks what differs there: line endings and the Makefile under Git Bash.
 name: verify
 
 on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 6 * * 1" # Mondays, 06:17 UTC
 
 permissions:
   contents: read
 
 concurrency:
   group: verify-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   linux:
@@ -31,9 +42,46 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    env:
+      PUBLISH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@v5
+      - name: Log in to the GitHub container registry
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Use the published image if docker/ is unchanged
+        if: github.event_name != 'schedule'
+        run: make pull || echo "Building the image instead."
       - run: make verify
+      - run: make regression
+      - name: Publish this architecture's verified image
+        if: env.PUBLISH == 'true'
+        run: make publish
+
+  publish:
+    name: Publish the image for both architectures
+    needs: linux
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: make publish-manifest
 
   windows:
     name: Windows checkout and Makefile

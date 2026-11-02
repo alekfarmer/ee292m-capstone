@@ -20,7 +20,10 @@ simulation) and M3 (linked, steppable views) are built:
   `program.json`, the hex image, `golden.json` and `trace.json`.
 - The API serves those artifacts and builds per-cycle views from them; the
   page (`src/web/`) shows C, assembly, machine code and the hardware (opening
-  on the datapath) for any cycle, with stepping by cycle or by C line.
+  on the datapath) for any cycle, with stepping by cycle or by C line. It
+  opens on the cycle `/api/start` names (see Backend).
+- `make regression` plants the defects in the answer key
+  (`src/app/regression_key.py`) and checks what catches each.
 
 Not built yet: gate-level views of the large modules (M4): the ALU shifter
 and result mux, the load/store unit, the PC adders, and the ALU's glue logic.
@@ -72,7 +75,8 @@ src/app/             the backend: api.py (routes only), pipeline.py (entry
                      decode.py (instruction fields), views.py (per-cycle and
                      module views), render.py (adder SVG), tools.py,
                      errors.py, paths.py, pagecheck.py (headless Chromium),
-                     cli.py (`make artifacts`), smoke.py (`make smoke`)
+                     cli.py (`make artifacts`), smoke.py (`make smoke`),
+                     regression.py and regression_key.py (`make regression`)
 src/web/             the page: index.html, app.js (panes, stepping),
                      graph.js (elk layout and drawing), styles.css
 tests/               pytest
@@ -80,7 +84,8 @@ docs/                decisions worth remembering, one short file each
 feedback/            peer reviews, merged from review pull requests; never edited
 data/                only when the project has data: raw/ is never modified,
                      processed/ is gitignored
-.github/workflows/   CI: `make verify` on Linux amd64 and arm64, Windows checks
+.github/workflows/   CI: `make verify` and `make regression` on Linux amd64 and
+                     arm64, Windows checks, and publishing the image (main)
 Makefile  README.md  ARCHITECTURE.md  AGENTS.md  CLAUDE.md
 .gitignore  .gitattributes  .env.example  ruff.toml  pytest.ini  mypy.ini
 ```
@@ -123,6 +128,17 @@ Makefile  README.md  ARCHITECTURE.md  AGENTS.md  CLAUDE.md
   -ffreestanding` (`-O1` folds `sum.c` to a constant; see README).
 - Halt convention: `crt0.S` stores `(a0 << 1) | 1` to `tohost`. Spike exits
   with a0; the golden log ends at that store.
+- The start cycle (`views.start_cycle`, served by `/api/start`) is where the
+  program first loops back (a jump to a lower address between two cycles on
+  C lines), else the first cycle on a C line, else 0. It works for any
+  program, so M5's user programs open the same way.
+- `make regression` copies the repository to
+  `backend/build/regression/<plant>/`, makes one plant's edit there, and runs
+  that copy's `app.cli artifacts`, `pytest` and `app.smoke` (against a server
+  from the copy on port 8001) until one fails. The answer key names the stage
+  and message that must catch each plant, or none for a known blind spot.
+  `tests/test_regression_key.py` fails as soon as a plant's text no longer
+  occurs exactly once, so the key cannot drift from the code silently.
 - `api.py` holds routes only. It also serves our page from `src/web/` and the
   frontend libraries under `/vendor/`.
 - Errors reach the page as one plain message, and the page clears any earlier
@@ -137,6 +153,7 @@ Named in README ("How the code is organized") and enforced by
   only it plus `models`, `errors` and `paths`.
 - The steps (`software`, `hardware`, `simulate`, `views`, `render`, `decode`,
   `vcd`, `tools`) never import the facade, the adapters or the checks.
+  The checks (`smoke`, `pagecheck`, `regression`) are adapters too.
 - Only `tools.py` starts external programs (`run_tool`, `ToolStream`).
 - The page fetches through one helper, and only from `/api/`.
 
@@ -170,11 +187,18 @@ Named in README ("How the code is organized") and enforced by
 
 ## Makefile
 
-`make help` (the default) lists every target in three groups.
+`make help` (the default) lists every target in four groups.
 
 Everyday, the only ones a user needs:
 
-- `build`: build everything the project needs, into the image.
+- `pull`: download the image CI built and verified for this checkout
+  (`ghcr.io/alekfarmer/ee292m-capstone:<tag>`; set `IMAGE_REPO` to use
+  another registry). The tag is a fingerprint of the files the image is built
+  from (the Dockerfile, both manifests and both locks), so a pulled image
+  always matches the checkout; with no match, it says to run `build`.
+- `build`: build everything the project needs, into the image. Skipped when
+  the image there already carries this checkout's fingerprint (compose labels
+  every build with it), so a pulled image is never rebuilt.
 - `up` and `down`: start and stop the app.
 - `verify`: check that it all works (lint, test, smoke). Must pass from a
   fresh clone with only Docker, Make and git installed.
@@ -196,6 +220,8 @@ While developing:
   rewrite the code into the standard format.
 - `smoke`: start the app, check a real API result (not just a status code),
   stop it again.
+- `regression`: plant each defect in the answer key and check that the stage
+  the key names catches it (`PLANT=name` for one), in about 15 seconds.
 - `logs` and `shell`: follow the app's output; open a shell inside the
   container.
 
@@ -206,5 +232,12 @@ Only when dependencies change:
   in `docker/uv.lock` and `docker/package-lock.json`, and commit each manifest
   with its lock. `build` uses only what the locks record, and says so, with
   this instruction, when a manifest and its lock disagree.
+
+CI only (`.github/workflows/verify.yml`):
+
+- `publish`: push this machine's image as `<tag>-amd64` or `<tag>-arm64`;
+  CI runs it on main only, after `verify` and `regression` passed.
+  `publish-manifest`: join the two under `<tag>`, so `pull` gets the right one
+  for each machine.
 
 Every target runs through compose (`docker compose -f docker/compose.yaml`).

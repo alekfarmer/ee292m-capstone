@@ -25,6 +25,14 @@ HOST_GID := 1000
 endif
 export COMPOSE_PROJECT_NAME HOST_UID HOST_GID
 
+# The prebuilt image (`make pull`). Its tag is a fingerprint of every file the
+# image is built from, so a pulled image always matches this checkout's docker/.
+IMAGE_REPO ?= ghcr.io/alekfarmer/ee292m-capstone
+IMAGE_INPUTS := docker/Dockerfile docker/pyproject.toml docker/uv.lock docker/package.json docker/package-lock.json
+IMAGE_TAG := $(shell cat $(IMAGE_INPUTS) | git hash-object --stdin | cut -c1-12)
+IMAGE := $(COMPOSE_PROJECT_NAME)-app
+export IMAGE_TAG
+
 COMPOSE := docker compose -f docker/compose.yaml
 RUN     := $(COMPOSE) run --rm --no-deps app
 TOOLS   := $(COMPOSE) --profile tools
@@ -37,11 +45,13 @@ PLANT ?=
 LOCK_HINT := A manifest and its lock may disagree. After changing docker/pyproject.toml \
 or docker/package.json, run 'make lock' and commit each manifest with its lock.
 
-.PHONY: help build up down verify clean test lint fmt smoke logs shell lock artifacts synth-log preview screenshot regression
+.PHONY: help build up down verify clean test lint fmt smoke logs shell lock artifacts synth-log preview screenshot regression \
+	pull publish publish-manifest
 
 help: ## List the targets
 	@echo "Everyday:"
-	@echo "  build      Build the image (all tools, pinned)"
+	@echo "  pull       Download the prebuilt image for this checkout (minutes; instead of build)"
+	@echo "  build      Build the image (all tools, pinned; skipped if it already matches docker/)"
 	@echo "  up / down  Start / stop the app on http://127.0.0.1:$${APP_PORT:-8000}"
 	@echo "  verify     Lint, test and smoke: the gate"
 	@echo "  clean      Remove this project's containers, images and generated files"
@@ -59,9 +69,19 @@ help: ## List the targets
 	@echo "  shell      Open a shell inside the container"
 	@echo "Only when dependencies change:"
 	@echo "  lock       Record exact versions in docker/uv.lock and docker/package-lock.json"
+	@echo "CI only:"
+	@echo "  publish, publish-manifest  Push the verified image to $(IMAGE_REPO)"
 
-build: ## Build the image
-	@$(COMPOSE) build app || { echo; echo "$(LOCK_HINT)"; exit 1; }
+pull: ## Download the prebuilt image that matches docker/ (tag IMAGE_TAG)
+	@docker pull $(IMAGE_REPO):$(IMAGE_TAG) || { echo; echo "No prebuilt image matches this checkout's docker/ (tag $(IMAGE_TAG)); run 'make build'."; exit 1; }
+	docker tag $(IMAGE_REPO):$(IMAGE_TAG) $(IMAGE)
+
+build: ## Build the image, unless the one there already matches docker/
+	@if [ "$$(docker image inspect --format '{{index .Config.Labels "ee292m.image-tag"}}' $(IMAGE) 2>/dev/null)" = "$(IMAGE_TAG)" ]; then \
+	  echo "build: the image already matches docker/ ($(IMAGE_TAG))"; \
+	else \
+	  $(COMPOSE) build app || { echo; echo "$(LOCK_HINT)"; exit 1; }; \
+	fi
 
 up: ## Start the app
 	$(COMPOSE) up -d --wait app
@@ -118,3 +138,12 @@ shell: ## Shell inside the container
 lock: ## Record exact dependency versions
 	$(TOOLS) run --rm --build uv-tool uv lock
 	$(TOOLS) run --rm --build node-tool npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+publish: ## CI only: push this machine's verified image as IMAGE_TAG-<arch>
+	arch="$$(docker version --format '{{.Server.Arch}}')" \
+	 && docker tag $(IMAGE) $(IMAGE_REPO):$(IMAGE_TAG)-$$arch \
+	 && docker push $(IMAGE_REPO):$(IMAGE_TAG)-$$arch
+
+publish-manifest: ## CI only: one name for both architectures' images
+	docker buildx imagetools create -t $(IMAGE_REPO):$(IMAGE_TAG) \
+	  $(IMAGE_REPO):$(IMAGE_TAG)-amd64 $(IMAGE_REPO):$(IMAGE_TAG)-arm64
