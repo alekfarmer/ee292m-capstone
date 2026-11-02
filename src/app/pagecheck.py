@@ -65,36 +65,59 @@ def check_rendered_page(base: str = BASE) -> list[str]:
     wire = re.search(r'<path[^>]*data-signal="rv\.dp\.pc"[^>]*>', dom)
     if not wire or 'data-value="0x80000000"' not in wire.group(0):
         problems.append("the drawn pc wire does not show 0x80000000 in cycle 0")
-    if not re.search(
-        r'<tr[^>]*class="current"[^>]*data-index="0"|<tr[^>]*data-index="0"[^>]*class="current"',
-        dom,
-    ):
-        problems.append("the first instruction is not highlighted in cycle 0")
-    if 'id="error"' in dom and re.search(r'id="error"[^>]*>[^<]+<', dom):
-        problems.append("the page shows an error")
+    if [_attr(t, "data-index") for t in _current(dom, "tr")] != ["0"]:
+        problems.append("the first instruction is not the one highlighted in cycle 0")
+    if _text_of(dom, "start-reason"):
+        problems.append("a page opened from a link still says why it opened where it did")
+    problems.extend(_error_shown(dom))
     return problems
 
 
-def _has_tag(dom: str, tag: str, *attrs: str) -> bool:
-    """Whether some ``<tag ...>`` in ``dom`` carries every one of ``attrs``."""
-    return any(all(a in m for a in attrs) for m in re.findall(rf"<{tag}\b[^>]*>", dom))
+def _current(dom: str, tag: str) -> list[str]:
+    """Every ``<tag ...>`` in ``dom`` whose class list includes ``current``."""
+    tags = re.findall(rf"<{tag}\b[^>]*>", dom)
+    return [t for t in tags if "current" in (_attr(t, "class") or "").split()]
 
 
-def check_first_screen(cycle: int, asm_index: int, c_line: int, base: str = BASE) -> list[str]:
+def _attr(tag: str, name: str) -> str | None:
+    """The value of attribute ``name`` in one opening tag, or None."""
+    m = re.search(rf'\s{re.escape(name)}="([^"]*)"', tag)
+    return m.group(1) if m else None
+
+
+def _text_of(dom: str, element_id: str) -> str:
+    """The text directly inside the element with ``id=element_id`` ("" if none)."""
+    m = re.search(rf'id="{re.escape(element_id)}"[^>]*>([^<]*)<', dom)
+    return m.group(1).strip() if m else ""
+
+
+def _error_shown(dom: str) -> list[str]:
+    error = _text_of(dom, "error")
+    return [f"the page shows an error: {error}"] if error else []
+
+
+def check_first_screen(
+    cycle: int, asm_index: int, c_line: int, reason: str, base: str = BASE
+) -> list[str]:
     """Problems with the page opened without a URL fragment (empty list if right).
 
-    It should open on ``cycle``, with its C line and its instruction highlighted.
+    It should open on ``cycle`` with exactly its C line and its instruction
+    highlighted, and say why, in the backend's words (``reason``).
     """
     dom = dump_dom("", base)
     problems = []
     if f"cycle {cycle} /" not in dom:
         problems.append(f"the page did not open on cycle {cycle}")
-    if not _has_tag(dom, "li", f'data-line="{c_line}"', "current"):
-        problems.append(f"C line {c_line} is not highlighted on the first screen")
-    if not _has_tag(dom, "tr", f'data-index="{asm_index}"', "current"):
-        problems.append(f"instruction {asm_index} is not highlighted on the first screen")
-    if not re.search(r'id="start-reason"[^>]*>It opened on cycle', dom):
-        problems.append("the start-here sentence does not say why it opened there")
+    lit_lines = [_attr(t, "data-line") for t in _current(dom, "li")]
+    if lit_lines != [str(c_line)]:
+        problems.append(f"C line {c_line} should be the one highlighted, not {lit_lines}")
+    lit_rows = [_attr(t, "data-index") for t in _current(dom, "tr")]
+    if lit_rows != [str(asm_index)]:
+        problems.append(f"instruction {asm_index} should be the one highlighted, not {lit_rows}")
+    said = _text_of(dom, "start-reason")
+    if said != f"It opened on cycle {cycle}, {reason}.":
+        problems.append(f"the start-here sentence says {said!r}")
+    problems.extend(_error_shown(dom))
     return problems
 
 

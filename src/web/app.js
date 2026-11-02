@@ -276,9 +276,11 @@ async function init() {
     renderSource(state.program);
     // Without a cycle in the URL, open where the backend says the layers line up.
     const opening = await getJson(`/api/start?${programQuery()}`);
-    els.startReason.textContent = `It opened on cycle ${opening.cycle}, ${opening.reason}.`;
-    const asked = hash.has("cycle") ? Number(hash.get("cycle")) : opening.cycle;
-    const start = Math.min(Math.max(asked || 0, 0), state.cycles - 1);
+    const asked = Number(hash.get("cycle") ?? "x");
+    const linked = Number.isInteger(asked);
+    const start = linked ? Math.min(Math.max(asked, 0), state.cycles - 1) : opening.cycle;
+    // Say why only when the page chose the cycle; a link chose it otherwise.
+    els.startReason.textContent = linked ? "" : `It opened on cycle ${opening.cycle}, ${opening.reason}.`;
     await show(start, hash.get("view") || DEFAULT_VIEW);
   } catch (err) {
     showError(err.message);
