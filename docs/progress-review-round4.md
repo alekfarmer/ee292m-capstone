@@ -278,7 +278,9 @@ artifact changed, so the plant never reached the design".
   published one. A tag means "built from the same `docker/` files", not
   identical bytes: rebuilding the artifacts showed `toolchain.json` recording
   Python 3.14.10, where the committed one said 3.14.8. The base image had
-  moved, so it is now committed as rebuilt.
+  moved, so it is now committed as rebuilt, and every base image (Python,
+  Node, uv) is pinned by digest. `make base-digests` prints the current
+  digests for the next upgrade.
 - **The weekly from-scratch build** was not requested. It is kept and
   explained in the README: once CI pulls, nothing else would notice drift in
   the package archives.

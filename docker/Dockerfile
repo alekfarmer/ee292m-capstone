@@ -10,16 +10,18 @@
 #   spike-build         Spike (riscv-isa-sim) built from a pinned commit
 #   final               Python deps from uv.lock + the tools above
 
-ARG PYTHON_BASE=python:3.14-slim-trixie
+# Base images are pinned by digest, so a tag that moves upstream cannot change
+# the image: `make base-digests` prints the current ones to pin here.
+ARG PYTHON_BASE=python:3.14.10-slim-trixie@sha256:930e1abba7c4e8f96ed93e8012c35d174d7732752731bbd5e8e757d7ec6f3966
 
 # --------------------------------------------------------------------------
-FROM ghcr.io/astral-sh/uv:0.9.5 AS uv-bin
+FROM ghcr.io/astral-sh/uv:0.9.5@sha256:f459f6f73a8c4ef5d69f4e6fbbdb8af751d6fa40ec34b39a1ab469acd6e289b7 AS uv-bin
 
 FROM ${PYTHON_BASE} AS uv-tool
 COPY --from=uv-bin /uv /usr/local/bin/uv
 WORKDIR /lock
 
-FROM node:22.20.0-bookworm-slim AS node-tool
+FROM node:22.20.0-bookworm-slim@sha256:b21fe589dfbe5cc39365d0544b9be3f1f33f55f3c86c87a76ff65a02f8f5848e AS node-tool
 WORKDIR /lock
 
 # --------------------------------------------------------------------------

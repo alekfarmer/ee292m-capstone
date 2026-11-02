@@ -30,9 +30,9 @@ and result mux, the load/store unit, the PC adders, and the ALU's glue logic.
 
 ## Stack
 
-- Backend: Python 3.14 (base image pinned to the minor version,
-  `python:3.14-slim`, so it takes patch fixes but never a new language
-  version; never `latest` or `3`) and FastAPI, with typed request and response models; `/docs` is the
+- Backend: Python 3.14 (base image `python:3.14.10-slim-trixie`, pinned by
+  digest like every base image, so a tag moving upstream cannot change the
+  build; `make base-digests` prints the current digests when upgrading) and FastAPI, with typed request and response models; `/docs` is the
   contract.
 - Frontend: static HTML and JavaScript, with no build step for our own code.
   It uses whichever library suits the view (Plotly for plots, D3 for custom
@@ -202,8 +202,9 @@ Everyday, the only ones a user needs:
   from (the Dockerfile, both manifests and both locks;
   `tests/test_image.py` fails if the Dockerfile copies a file it does not
   cover), so a pulled image was built from this checkout's `docker/`; with no
-  match, it says to run `build`. The Python base image and some Debian
-  packages float, so two builds of one tag can differ in their versions.
+  match, it says to run `build`. The base images are pinned by digest, but
+  some Debian packages are taken at their current version, so two builds of
+  one tag can still differ there.
 - `build`: build everything the project needs, into the image. Skipped when
   the image there already carries this checkout's fingerprint (compose labels
   every build with it), so a pulled image is never rebuilt.
@@ -240,6 +241,9 @@ Only when dependencies change:
   in `docker/uv.lock` and `docker/package-lock.json`, and commit each manifest
   with its lock. `build` uses only what the locks record, and says so, with
   this instruction, when a manifest and its lock disagree.
+- `base-digests`: print the digest of each base image the Dockerfile starts
+  from (by the tags in the Makefile's `BASE_IMAGES`), to pin when upgrading
+  one.
 
 CI only (`.github/workflows/verify.yml`):
 

@@ -58,8 +58,9 @@ checkout's `docker/` files (the tag is a fingerprint of them). If there is
 none, because you changed `docker/` or CI has not published one yet, it says
 so and `make build` builds it. `make build` skips the build when the image
 there already matches. Images with the same tag come from the same `docker/`
-files, but not necessarily identical bytes: the Python base image and some
-Debian packages are taken at their current version when the image is built.
+files, but not necessarily identical bytes: the base images are pinned by
+digest, but some Debian packages are taken at their current version when the
+image is built.
 
 The page follows `sum.c` cycle by cycle:
 

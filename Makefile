@@ -50,7 +50,7 @@ LOCK_HINT := A manifest and its lock may disagree. After changing docker/pyproje
 or docker/package.json, run 'make lock' and commit each manifest with its lock.
 
 .PHONY: help build up down verify clean test lint fmt smoke logs shell lock artifacts synth-log preview screenshot regression \
-	pull publish publish-manifest
+	pull publish publish-manifest base-digests
 
 help: ## List the targets
 	@echo "Everyday:"
@@ -73,6 +73,7 @@ help: ## List the targets
 	@echo "  shell      Open a shell inside the container"
 	@echo "Only when dependencies change:"
 	@echo "  lock       Record exact versions in docker/uv.lock and docker/package-lock.json"
+	@echo "  base-digests  Print the digests of the base images, to pin in docker/Dockerfile"
 	@echo "CI only:"
 	@echo "  publish, publish-manifest  Push the verified image to $(IMAGE_REPO)"
 
@@ -147,6 +148,14 @@ shell: ## Shell inside the container
 lock: ## Record exact dependency versions
 	$(TOOLS) run --rm --build uv-tool uv lock
 	$(TOOLS) run --rm --build node-tool npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+# The base images the Dockerfile starts FROM, by tag; their digests are pinned there.
+BASE_IMAGES := python:3.14.10-slim-trixie node:22.20.0-bookworm-slim ghcr.io/astral-sh/uv:0.9.5
+
+base-digests: ## The multi-architecture digest of each base image (to pin in the Dockerfile)
+	@for image in $(BASE_IMAGES); do \
+	  echo "$$image@$$(docker buildx imagetools inspect $$image --format '{{.Manifest.Digest}}')"; \
+	done
 
 publish: ## CI only: push this machine's verified image as IMAGE_TAG-<arch>
 	$(CHECK_TAG)
