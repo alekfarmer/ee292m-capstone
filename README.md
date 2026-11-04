@@ -80,6 +80,9 @@ The page follows `sum.c` cycle by cycle:
 
 `make screenshot` saves pictures of a few views to `backend/build/screenshots/`.
 
+`make pr TITLE="..." BODY=file.md` opens a pull request from the current
+branch into `main` (it uses the host's `gh`; it refuses to run on `main`).
+
 `make artifacts` regenerates everything in `backend/artifacts/` from the
 sources; the generated files are committed, and the tests fail if they are
 stale.

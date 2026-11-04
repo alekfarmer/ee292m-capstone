@@ -45,11 +45,14 @@ TOOLS   := $(COMPOSE) --profile tools
 ARGS ?=
 # Plants for `make regression`, e.g. `make regression PLANT=bge_as_blt` (default: all).
 PLANT ?=
+# For `make pr`: the pull request's title and a file holding its description.
+TITLE ?=
+BODY ?=
 
 LOCK_HINT := A manifest and its lock may disagree. After changing docker/pyproject.toml \
 or docker/package.json, run 'make lock' and commit each manifest with its lock.
 
-.PHONY: help build up down verify clean test lint fmt smoke spot-check logs shell lock artifacts synth-log preview screenshot regression \
+.PHONY: help build up down verify clean test lint fmt smoke spot-check logs shell lock artifacts synth-log preview screenshot regression pr \
 	pull publish publish-manifest base-digests
 
 help: ## List the targets
@@ -58,6 +61,7 @@ help: ## List the targets
 	@echo "  build      Build the image (all tools, pinned; skipped if it already matches docker/)"
 	@echo "  up / down  Start / stop the app on http://127.0.0.1:$${APP_PORT:-8000}"
 	@echo "  verify     Lint, test, spot-check and smoke: the gate"
+	@echo "  pr         Open a pull request from this branch into main (TITLE=..., BODY=file)"
 	@echo "  clean      Remove this project's containers, images and generated files"
 	@echo "While developing:"
 	@echo "  artifacts  Regenerate everything in backend/artifacts/ (M0-M2, every program)"
@@ -160,6 +164,12 @@ base-digests: ## The multi-architecture digest of each base image (to pin in the
 	@for image in $(BASE_IMAGES); do \
 	  echo "$$image@$$(docker buildx imagetools inspect $$image --format '{{.Manifest.Digest}}')"; \
 	done
+
+pr: ## Open a pull request from this branch into main (TITLE=..., BODY=file)
+	@branch="$$(git rev-parse --abbrev-ref HEAD)"; \
+	 if [ "$$branch" = main ]; then echo "pr: on main; open a PR from a feature branch" >&2; exit 1; fi; \
+	 if [ -z "$(TITLE)" ] || [ ! -f "$(BODY)" ]; then echo "pr: needs TITLE=... and BODY=<file>" >&2; exit 1; fi; \
+	 gh pr create --base main --head "$$branch" --title "$(TITLE)" --body-file "$(BODY)"
 
 publish: ## CI only: push this machine's verified image as IMAGE_TAG-<arch>
 	$(CHECK_TAG)
