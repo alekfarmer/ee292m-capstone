@@ -6,6 +6,8 @@ from fastapi import FastAPI, HTTPException, Path, Query
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
+from starlette.responses import Response
+from starlette.types import Scope
 
 from app import pipeline
 from app.errors import ArtifactMissingError, PipelineError
@@ -155,6 +157,20 @@ def adder_view(case_id: CaseId) -> AdderView:
         raise HTTPException(status_code=404, detail=f"no adder case '{case_id}'") from None
 
 
+class PageFiles(StaticFiles):
+    """Static files a browser must revalidate before each use.
+
+    Without this, a browser may keep running an old graph.js after an update.
+    `no-cache` still lets it keep the file; unchanged files cost a 304.
+    """
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        """Serve the file as StaticFiles does, marked `Cache-Control: no-cache`."""
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 if VENDOR_DIR.is_dir():
     app.mount("/vendor", StaticFiles(directory=VENDOR_DIR), name="vendor")
-app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
+app.mount("/", PageFiles(directory=WEB_DIR, html=True), name="web")

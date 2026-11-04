@@ -5,7 +5,12 @@ import json
 import sys
 import urllib.request
 
-from app.pagecheck import check_first_screen, check_rendered_page
+from app.pagecheck import (
+    check_first_screen,
+    check_gate_view,
+    check_register_table,
+    check_rendered_page,
+)
 
 DEFAULT_PORT = 8000
 
@@ -50,12 +55,27 @@ def check(base: str) -> tuple[list[str], str]:
             opening["cycle"], opening["asm_index"], opening["c_line"], start["reason"], base + "/"
         )
     )
+    problems.extend(_check_m4_views(base, opening["cycle"]))
     summary = (
         "5 + 3 = 0x00000008 on the gates, a0 = 55 in Spike and in the core's halt store, "
         f"{trace['cycles']}-cycle trace, page renders the datapath with pc = 0x80000000 "
-        f"and opens on cycle {opening['cycle']} with its C line lit"
+        f"and opens on cycle {opening['cycle']} with its C line lit; a shifter stage "
+        "draws its gates and the register table matches the API"
     )
     return problems, summary
+
+
+def _check_m4_views(base: str, cycle: int) -> list[str]:
+    """M4 on the page: a former block-only module draws gates; the register table is right."""
+    problems = check_gate_view(f"#cycle={cycle}&view=top.rv.dp.alu.sh.asr.by16", base + "/")
+    view = fetch(base, f"/api/view/top.rv.dp.rf?cycle={cycle}")
+    rows = view.get("registers") if isinstance(view, dict) else None
+    if not isinstance(rows, list) or len(rows) != 32:
+        return [*problems, f"/api/view/top.rv.dp.rf gave {str(view)[:80]}"]
+    values = {r["index"]: r["value"] for r in rows}
+    written = next((r["index"] for r in rows if r["written"] is not None), None)
+    problems.extend(check_register_table(cycle, values, written, base + "/"))
+    return problems
 
 
 def _check_halt_store(base: str, cycles: object) -> list[str]:

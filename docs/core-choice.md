@@ -18,11 +18,21 @@ about ten instructions, while `sum.c` at `-O1` plus `crt0.S` need `lui`/`auipc`,
 - `pcsrc = 10` selects `(rs1 + imm) & ~1` for `jalr`.
 - The ALU outputs zero/negative/overflow/carry flags; `branchunit` turns
   them into the six branch conditions.
-- `lsu` handles byte and halfword loads and stores.
+- `lsu` handles byte and halfword loads and stores, as three blocks:
+  `storealign`, `loadalign` (shifts the word right by the byte offset) and
+  `loadextend`.
 - A unified 4 KiB `ram` at `0x8000_0000` (Spike's default RAM base) instead of
   separate instruction and data memories.
-- The ALU's adder is `adder32`, a structural chain of 32 `full_adder`
-  modules, so the gate view is the textbook ripple-carry adder (see below).
+- The ALU's adder and both PC adders are `adder32`, a structural chain of
+  32 `full_adder` modules, so the gate view is the textbook ripple-carry
+  adder (see below).
+- Large units are built from small structural blocks so each can be drawn
+  (M4): the shifter is three five-stage barrel shifters of `mux2`s, the ALU
+  result select a tree of `mux2`s, and the ALU's subtract inversion and zero
+  flag are `binvert` and `zerodetect`. Two differences from the M3 RTL, both
+  unreachable: `alucontrol` codes 1010-1111 (aludec never produces them)
+  give a right shift instead of 0, and a misaligned halfword or word load (not a
+  legal access) takes the bytes at the offset.
 
 **Why not CVA6, PicoRV32, SERV, ...** Pipelined, multicycle or bit-serial
 cores break the "one instruction, one cycle" story the views tell, and are far

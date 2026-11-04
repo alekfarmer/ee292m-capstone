@@ -1,41 +1,31 @@
-"""M3: what the page draws, per cycle, built from the netlist and the trace.
+"""One module of the netlist as a graph, with every wire's value in a cycle.
 
-* :func:`cycle_view`: the cycle's PC, asm and C line, register write, and the
-  cycles to jump to when stepping by C line.
-* :func:`module_view`: one module of the netlist as a graph (its ports, its
-  sub-blocks or gates, constants, and the wires between them) with every
-  wire's value in that cycle, or, for the ALU adder, the textbook drawing.
-
-Every value comes from trace.json (the verified gate-level run). Wires that
-carry only part of a bus (``instr[19:15]``) get the slice's value here, so
-the page never extracts bits itself.
+Blocks, gates and constants become nodes; the wires between them become
+edges carrying the trace's value (slices included, so the page never
+extracts bits itself). The ALU adder is the textbook drawing instead, and
+the register file a table (see :mod:`app.views.registers`).
 """
 
 from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from app import hardware, render
-from app.decode import ABI_NAMES
 from app.errors import PipelineError
 from app.models import (
     AdderCaseValues,
-    AsmLine,
     Bit,
     Breadcrumb,
-    CycleView,
     GateCountReport,
-    GoldenArtifact,
     ModuleView,
-    ProgramArtifact,
-    RegisterWrite,
-    StartCycle,
-    TraceArtifact,
+    Stage,
     ViewEdge,
     ViewNode,
     ViewPort,
 )
+from app.views import registers
+from app.views.trace import TraceIndex
+
+StageId = Literal["IF", "ID", "EX", "MEM", "WB"]
 
 ROOT = "top"
 DEFAULT_VIEW = "top.rv.dp"  # the datapath, as in the textbook
@@ -51,9 +41,56 @@ GATE_MODULES = {
     "flopr",
     "extend",
     "logicunit",
+    "binvert",
+    "zerodetect",
 }
-# Shown as blocks only until M4: too large, or scrambled by ABC.
-BLOCK_ONLY = {"shifter", "resultmux", "lsu", "adder"}
+# The five textbook stages, drawn as columns on the datapath. In this
+# single-cycle core all five happen within one clock cycle.
+STAGES = [
+    Stage(id="IF", name="fetch", note="read the instruction at PC; choose the next PC"),
+    Stage(id="ID", name="decode", note="read the registers; build the immediate"),
+    Stage(id="EX", name="execute", note="the ALU computes a result, an address or a comparison"),
+    Stage(id="MEM", name="memory", note="load from or store to data memory"),
+    Stage(id="WB", name="write-back", note="choose the value written back to the register"),
+]
+STAGED_MODULE = "datapath"
+# Each datapath node's stage, as in the Patterson & Hennessy and Harris &
+# Harris figures. Ports sit with what they connect to: the instruction
+# memory (instr) in IF, data memory (readword, writedata, byteen) in MEM, and
+# each control signal with the block it steers. Constants take the stage of
+# the block they feed.
+DATAPATH_STAGES: dict[str, StageId] = {
+    "pcreg": "IF",
+    "pcadd4": "IF",
+    "pcmux": "IF",
+    "in:clk": "IF",
+    "in:reset": "IF",
+    "in:pcsrc": "IF",
+    "in:instr": "IF",
+    "out:pc": "IF",
+    "rf": "ID",
+    "ext": "ID",
+    "in:regwrite": "ID",
+    "in:immsrc": "ID",
+    "srcamux": "EX",
+    "srcbmux": "EX",
+    "alu": "EX",
+    "pcaddbranch": "EX",
+    "in:srcasel": "EX",
+    "in:alusrc": "EX",
+    "in:alucontrol": "EX",
+    "out:zero": "EX",
+    "out:neg": "EX",
+    "out:ovf": "EX",
+    "out:carry": "EX",
+    "lsu": "MEM",
+    "in:readword": "MEM",
+    "out:aluresult": "MEM",
+    "out:writedata": "MEM",
+    "out:byteen": "MEM",
+    "resultmux": "WB",
+    "in:resultsrc": "WB",
+}
 # A block view with more loose gates than this groups them into one node.
 LOOSE_GATES_MAX = 40
 GLUE = "logic"
@@ -67,167 +104,6 @@ GATE_PORTS: dict[str, tuple[list[str], list[str]]] = {
     "$_MUX_": (["A", "B", "S"], ["Y"]),
     "$_DFF_P_": (["C", "D"], ["Q"]),
 }
-
-
-# --- trace access ----------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class TraceIndex:
-    """The trace expanded to one ``{signal: value}`` dict per cycle."""
-
-    widths: dict[str, int]
-    cycles: list[dict[str, int]]
-
-    def value(self, cycle: int, signal: str) -> int:
-        """The value of ``signal`` in ``cycle``."""
-        try:
-            return self.cycles[cycle][signal]
-        except KeyError as exc:
-            raise PipelineError(f"signal {signal} is not in the trace") from exc
-
-
-def expand_trace(trace: TraceArtifact) -> TraceIndex:
-    """Turn the change list into a full snapshot per cycle."""
-    names = [s.name for s in trace.signals]
-    cur = {n: int(v, 16) for n, v in zip(names, trace.initial, strict=True)}
-    cycles = [dict(cur)]
-    for changes in trace.changes:
-        for i, v in changes:
-            cur[names[i]] = int(v, 16)
-        cycles.append(dict(cur))
-    return TraceIndex({s.name: s.width for s in trace.signals}, cycles)
-
-
-@lru_cache(maxsize=4)
-def _cached_index(path: str, mtime_ns: int) -> TraceIndex:
-    return expand_trace(TraceArtifact.model_validate_json(Path(path).read_text()))
-
-
-def trace_index(trace_path: Path) -> TraceIndex:
-    """The expanded trace, cached until the file changes."""
-    return _cached_index(str(trace_path), trace_path.stat().st_mtime_ns)
-
-
-# --- cycle view --------------------------------------------------------------------
-
-
-def _line_runs(c_lines: list[int | None]) -> list[tuple[int, int]]:
-    """Maximal runs ``(start, end_exclusive)`` of cycles on the same C line."""
-    runs: list[tuple[int, int]] = []
-    start = 0
-    for n in range(1, len(c_lines) + 1):
-        if n == len(c_lines) or c_lines[n] != c_lines[start]:
-            runs.append((start, n))
-            start = n
-    return runs
-
-
-LOOPS_BACK = "the first time the program loops back"
-FIRST_C_LINE = "the first cycle that runs a line of C"
-FIRST_CYCLE = "the first cycle"
-
-
-@dataclass(frozen=True)
-class Step:
-    """One cycle of a run, as the start-cycle rule sees it.
-
-    ``local_jump`` is true for an instruction that can close a loop: a
-    conditional branch, or a ``jal`` that saves no return address. Calls
-    (``jal ra``) and returns (``jalr``) are not loops.
-    """
-
-    pc: int
-    c_line: int | None
-    function: str
-    local_jump: bool
-
-
-def can_close_a_loop(line: AsmLine) -> bool:
-    """Whether ``line`` is a branch or a plain jump (not a call or a return)."""
-    return line.format == "B" or line.text.startswith("jal zero,")
-
-
-def start_cycle(run: list[Step]) -> StartCycle:
-    """The cycle the page opens on, for any program.
-
-    Start-up code (no C line) is a poor first screen, so the page opens where
-    the program first loops back: the cycle after a branch or plain jump to a
-    lower address in the same function, both cycles on C lines. Calls and
-    returns do not count. For ``sum.c`` (and any loop GCC rotates, test at the
-    bottom) that is the first pass through the loop body; for a loop with its
-    test at the top it is the second test. Without a loop, it opens on the
-    first cycle on a C line, and failing that on cycle 0.
-    """
-    for n in range(1, len(run)):
-        jump, there = run[n - 1], run[n]
-        if (
-            jump.local_jump
-            and there.pc < jump.pc
-            and there.function == jump.function
-            and jump.c_line is not None
-            and there.c_line is not None
-        ):
-            return StartCycle(cycle=n, reason=LOOPS_BACK)
-    first = next((n for n, step in enumerate(run) if step.c_line is not None), None)
-    if first is not None:
-        return StartCycle(cycle=first, reason=FIRST_C_LINE)
-    return StartCycle(cycle=0, reason=FIRST_CYCLE)
-
-
-def program_start(program: ProgramArtifact, golden: GoldenArtifact) -> StartCycle:
-    """The start cycle of one program run (see :func:`start_cycle`).
-
-    Raises:
-        PipelineError: Spike ran a pc that is not in the program's listing.
-    """
-    line_at = {line.addr: line for line in program.asm}
-    run = []
-    for n, entry in enumerate(golden.entries):
-        line = line_at.get(entry.pc)
-        if line is None:
-            raise PipelineError(f"cycle {n}: Spike ran pc={entry.pc}, which is not in the listing")
-        step = Step(int(entry.pc, 16), line.c_line, line.function, can_close_a_loop(line))
-        run.append(step)
-    return start_cycle(run)
-
-
-def cycle_view(
-    n: int, program: ProgramArtifact, golden: GoldenArtifact, index: TraceIndex
-) -> CycleView:
-    """Everything the panes need about cycle ``n``."""
-    if not 0 <= n < len(golden.entries):
-        raise KeyError(n)
-    by_addr = {line.addr: i for i, line in enumerate(program.asm)}
-    asm_rows = [by_addr[e.pc] for e in golden.entries]
-    c_lines = [program.asm[i].c_line for i in asm_rows]
-    runs = _line_runs(c_lines)
-    run = next(k for k, (s, e) in enumerate(runs) if s <= n < e)
-
-    entry = golden.entries[n]
-    write = None
-    if entry.rd not in (None, 0) and entry.rd_value is not None:
-        write = RegisterWrite(rd=entry.rd, name=ABI_NAMES[entry.rd], value=entry.rd_value)
-    prev_snap = index.cycles[n - 1] if n > 0 else index.cycles[n]
-    changed = sum(1 for k, v in index.cycles[n].items() if prev_snap.get(k) != v)
-    line = program.asm[asm_rows[n]]
-    return CycleView(
-        cycle=n,
-        cycles=len(golden.entries),
-        pc=entry.pc,
-        insn=entry.insn,
-        asm_index=asm_rows[n],
-        text=line.text,
-        c_line=line.c_line,
-        register_write=write,
-        changed_signals=changed if n > 0 else 0,
-        prev_line_cycle=runs[run - 1][0] if run > 0 else None,
-        next_line_cycle=runs[run + 1][0] if run + 1 < len(runs) else None,
-        halt=n == len(golden.entries) - 1,
-    )
-
-
-# --- module views ------------------------------------------------------------------
 
 
 def resolve(netlist: hardware.Netlist, path: str) -> list[tuple[str, str]]:
@@ -252,10 +128,31 @@ def resolve(netlist: hardware.Netlist, path: str) -> list[tuple[str, str]]:
     return chain
 
 
+def view_paths(netlist: hardware.Netlist) -> list[str]:
+    """Every instance path that opens to a view (see :func:`drill_kind`), from the root down."""
+    modules = netlist["modules"]
+    found: list[str] = []
+
+    def walk(module: str, path: str) -> None:
+        found.append(path)
+        for name, cell in modules[module].get("cells", {}).items():
+            ctype = cell["type"]
+            if ctype in modules and drill_kind(netlist, ctype) is not None:
+                walk(ctype, f"{path}.{name.lstrip(chr(92))}")
+
+    walk(ROOT, ROOT)
+    return found
+
+
 def drill_kind(netlist: hardware.Netlist, module: str) -> str | None:
-    """What opening a block of type ``module`` shows: blocks, gates, adder or nothing."""
+    """What opening a block of type ``module`` shows, or None if it cannot be opened.
+
+    Blocks, gates, the adder drawing, or the register table; the RAM is not opened.
+    """
     mod = netlist["modules"][module]
-    if hardware.is_blackbox(mod) or module in BLOCK_ONLY:
+    if module == registers.REGFILE_MODULE:
+        return "registers"
+    if hardware.is_blackbox(mod):
         return None
     if module == hardware.ADDER_MODULE:
         return "adder"
@@ -351,9 +248,11 @@ def _build_nodes(
         ctype = cell["type"]
         if ctype in modules:
             sub_ports = modules[ctype]["ports"]
+            # An output left unconnected (the PC adders' carry out) has no bits.
             ports = [
                 _Port(p, "in" if sub_ports[p]["direction"] == "input" else "out", bits)
                 for p, bits in cell["connections"].items()
+                if bits
             ]
             child = f"{path}.{name}"
             nodes.append(
@@ -441,9 +340,25 @@ def module_view(
             svg=render.adder_svg(netlist, case),
         )
 
+    if module == registers.REGFILE_MODULE:
+        return ModuleView(
+            path=path,
+            module=module,
+            kind="registers",
+            breadcrumbs=crumbs,
+            cycle=cycle,
+            gate_count=0,
+            nodes=[],
+            edges=[],
+            svg=None,
+            registers=registers.register_rows(prefix, cycle, index),
+        )
+
     nodes = _build_nodes(netlist, module, path, totals)
     edges = _build_edges(netlist["modules"][module], nodes, prefix, cycle, index)
     kind = "gates" if any(n.kind == "gate" for n in nodes) else "blocks"
+    consts = _consts_seen(edges)
+    stage = _stages(module, [n.id for n in nodes], edges)
     return ModuleView(
         path=path,
         module=module,
@@ -460,6 +375,7 @@ def module_view(
                 path=n.path,
                 drill=n.drill,
                 gate_count=n.gate_count,
+                stage=stage.get(n.id),
                 ports=[
                     ViewPort(name=p.name, direction=p.direction, width=len(p.bits)) for p in n.ports
                 ],
@@ -471,13 +387,33 @@ def module_view(
                 id=c_id,
                 kind="const",
                 label=label,
+                stage=stage.get(c_id),
                 ports=[ViewPort(name="y", direction="out", width=w)],
             )
-            for c_id, (label, w) in _consts_seen(edges).items()
+            for c_id, (label, w) in consts.items()
         ],
         edges=edges,
         svg=None,
+        stages=STAGES if module == STAGED_MODULE else None,
     )
+
+
+def _stages(module: str, node_ids: list[str], edges: list[ViewEdge]) -> dict[str, StageId]:
+    """Each node's stage, for the datapath; empty for every other module.
+
+    Raises:
+        PipelineError: a datapath node has no stage in ``DATAPATH_STAGES``.
+    """
+    if module != STAGED_MODULE:
+        return {}
+    missing = sorted(set(node_ids) - set(DATAPATH_STAGES))
+    if missing:
+        raise PipelineError(f"datapath nodes without a stage: {', '.join(missing)}")
+    stage = {n: DATAPATH_STAGES[n] for n in node_ids}
+    for e in edges:
+        if e.source.startswith("const:"):
+            stage[e.source] = stage[e.target]
+    return stage
 
 
 def _consts_seen(edges: list[ViewEdge]) -> dict[str, tuple[str, int]]:

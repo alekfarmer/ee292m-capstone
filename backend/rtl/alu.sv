@@ -1,5 +1,7 @@
 // RV32I ALU, built from blocks so each can be drawn on its own:
+//   binvert   ~b for a subtraction (a row of XOR gates)
 //   adder32   a + b or a + ~b + 1 (structural ripple carry)
+//   zerodetect  sum == 0
 //   logicunit and / or / xor
 //   shifter   sll / srl / sra
 //   resultmux picks the result by alucontrol
@@ -30,7 +32,8 @@ module alu (
 
     // Subtract for sub, slt and sltu.
     assign sub   = (alucontrol == 4'b0001) | (alucontrol == 4'b0101) | (alucontrol == 4'b0110);
-    assign b_eff = sub ? ~b : b;
+
+    binvert inv (.b(b), .invert(sub), .y(b_eff));
 
     adder32 add (
         .a   (a),
@@ -44,7 +47,7 @@ module alu (
 
     shifter sh (.a(a), .shamt(b[4:0]), .y_sll(y_sll), .y_srl(y_srl), .y_sra(y_sra));
 
-    assign zero = (sum == 32'b0);
+    zerodetect zd (.a(sum), .zero(zero));
     assign neg  = sum[31];
     assign ovf  = (a[31] == b_eff[31]) & (sum[31] != a[31]);
     assign lt   = neg ^ ovf;

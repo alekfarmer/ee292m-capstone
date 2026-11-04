@@ -12,12 +12,12 @@
     {
       "label": "Top level (register file and RAM as black boxes)",
       "module": "top",
-      "total_gates": 2169
+      "total_gates": 2045
     },
     {
       "label": "Processor (controller + datapath)",
       "module": "riscvsingle",
-      "total_gates": 2169
+      "total_gates": 2045
     },
     {
       "label": "Control unit",
@@ -42,12 +42,12 @@
     {
       "label": "Datapath",
       "module": "datapath",
-      "total_gates": 2091
+      "total_gates": 1967
     },
     {
       "label": "ALU",
       "module": "alu",
-      "total_gates": 1175
+      "total_gates": 1068
     },
     {
       "label": "ALU adder (ripple-carry)",
@@ -67,12 +67,12 @@
     {
       "label": "ALU shifter",
       "module": "shifter",
-      "total_gates": 398
+      "total_gates": 480
     },
     {
       "label": "ALU result mux",
       "module": "resultmux",
-      "total_gates": 439
+      "total_gates": 256
     },
     {
       "label": "Immediate decoder",
@@ -82,33 +82,10 @@
     {
       "label": "Load/store unit",
       "module": "lsu",
-      "total_gates": 220
+      "total_gates": 207
     }
   ],
   "modules": [
-    {
-      "module": "adder",
-      "blackbox": false,
-      "local": {
-        "AND": 61,
-        "OR": 38,
-        "XOR": 63,
-        "NOT": 0,
-        "MUX": 0,
-        "DFF": 0
-      },
-      "local_total": 162,
-      "total": {
-        "AND": 61,
-        "OR": 38,
-        "XOR": 63,
-        "NOT": 0,
-        "MUX": 0,
-        "DFF": 0
-      },
-      "total_gates": 162,
-      "instances": {}
-    },
     {
       "module": "adder32",
       "blackbox": false,
@@ -138,28 +115,30 @@
       "module": "alu",
       "blackbox": false,
       "local": {
-        "AND": 6,
-        "OR": 35,
-        "XOR": 32,
-        "NOT": 8,
-        "MUX": 1,
+        "AND": 3,
+        "OR": 1,
+        "XOR": 0,
+        "NOT": 4,
+        "MUX": 3,
         "DFF": 0
       },
-      "local_total": 82,
+      "local_total": 11,
       "total": {
-        "AND": 426,
-        "OR": 310,
+        "AND": 100,
+        "OR": 95,
         "XOR": 128,
-        "NOT": 17,
-        "MUX": 294,
+        "NOT": 6,
+        "MUX": 739,
         "DFF": 0
       },
-      "total_gates": 1175,
+      "total_gates": 1068,
       "instances": {
         "adder32": 1,
+        "binvert": 1,
         "logicunit": 1,
         "resultmux": 1,
-        "shifter": 1
+        "shifter": 1,
+        "zerodetect": 1
       }
     },
     {
@@ -183,6 +162,29 @@
         "DFF": 0
       },
       "total_gates": 25,
+      "instances": {}
+    },
+    {
+      "module": "binvert",
+      "blackbox": false,
+      "local": {
+        "AND": 0,
+        "OR": 0,
+        "XOR": 32,
+        "NOT": 0,
+        "MUX": 0,
+        "DFF": 0
+      },
+      "local_total": 32,
+      "total": {
+        "AND": 0,
+        "OR": 0,
+        "XOR": 32,
+        "NOT": 0,
+        "MUX": 0,
+        "DFF": 0
+      },
+      "total_gates": 32,
       "instances": {}
     },
     {
@@ -248,16 +250,16 @@
       },
       "local_total": 0,
       "total": {
-        "AND": 736,
-        "OR": 500,
-        "XOR": 255,
-        "NOT": 27,
-        "MUX": 541,
+        "AND": 314,
+        "OR": 196,
+        "XOR": 256,
+        "NOT": 13,
+        "MUX": 1156,
         "DFF": 32
       },
-      "total_gates": 2091,
+      "total_gates": 1967,
       "instances": {
-        "adder": 2,
+        "adder32": 2,
         "alu": 1,
         "extend": 1,
         "flopr": 1,
@@ -337,6 +339,56 @@
       "instances": {}
     },
     {
+      "module": "loadalign",
+      "blackbox": false,
+      "local": {
+        "AND": 0,
+        "OR": 0,
+        "XOR": 0,
+        "NOT": 0,
+        "MUX": 0,
+        "DFF": 0
+      },
+      "local_total": 0,
+      "total": {
+        "AND": 0,
+        "OR": 0,
+        "XOR": 0,
+        "NOT": 0,
+        "MUX": 64,
+        "DFF": 0
+      },
+      "total_gates": 64,
+      "instances": {
+        "mux2": 2
+      }
+    },
+    {
+      "module": "loadextend",
+      "blackbox": false,
+      "local": {
+        "AND": 2,
+        "OR": 0,
+        "XOR": 0,
+        "NOT": 1,
+        "MUX": 0,
+        "DFF": 0
+      },
+      "local_total": 3,
+      "total": {
+        "AND": 2,
+        "OR": 0,
+        "XOR": 0,
+        "NOT": 1,
+        "MUX": 64,
+        "DFF": 0
+      },
+      "total_gates": 67,
+      "instances": {
+        "mux3": 1
+      }
+    },
+    {
       "module": "logicunit",
       "blackbox": false,
       "local": {
@@ -363,24 +415,28 @@
       "module": "lsu",
       "blackbox": false,
       "local": {
-        "AND": 108,
-        "OR": 83,
-        "XOR": 1,
-        "NOT": 6,
-        "MUX": 22,
+        "AND": 0,
+        "OR": 0,
+        "XOR": 0,
+        "NOT": 0,
+        "MUX": 0,
         "DFF": 0
       },
-      "local_total": 220,
+      "local_total": 0,
       "total": {
-        "AND": 108,
-        "OR": 83,
-        "XOR": 1,
-        "NOT": 6,
-        "MUX": 22,
+        "AND": 6,
+        "OR": 6,
+        "XOR": 0,
+        "NOT": 3,
+        "MUX": 192,
         "DFF": 0
       },
-      "total_gates": 220,
-      "instances": {}
+      "total_gates": 207,
+      "instances": {
+        "loadalign": 1,
+        "loadextend": 1,
+        "storealign": 1
+      }
     },
     {
       "module": "maindec",
@@ -501,24 +557,26 @@
       "module": "resultmux",
       "blackbox": false,
       "local": {
-        "AND": 241,
-        "OR": 194,
+        "AND": 0,
+        "OR": 0,
         "XOR": 0,
-        "NOT": 4,
+        "NOT": 0,
         "MUX": 0,
         "DFF": 0
       },
-      "local_total": 439,
+      "local_total": 0,
       "total": {
-        "AND": 241,
-        "OR": 194,
+        "AND": 0,
+        "OR": 0,
         "XOR": 0,
-        "NOT": 4,
-        "MUX": 0,
+        "NOT": 0,
+        "MUX": 256,
         "DFF": 0
       },
-      "total_gates": 439,
-      "instances": {}
+      "total_gates": 256,
+      "instances": {
+        "mux2": 8
+      }
     },
     {
       "module": "riscvsingle",
@@ -533,14 +591,14 @@
       },
       "local_total": 0,
       "total": {
-        "AND": 772,
-        "OR": 522,
-        "XOR": 259,
-        "NOT": 42,
-        "MUX": 542,
+        "AND": 350,
+        "OR": 218,
+        "XOR": 260,
+        "NOT": 28,
+        "MUX": 1157,
         "DFF": 32
       },
-      "total_gates": 2169,
+      "total_gates": 2045,
       "instances": {
         "controller": 1,
         "datapath": 1
@@ -550,24 +608,102 @@
       "module": "shifter",
       "blackbox": false,
       "local": {
-        "AND": 83,
-        "OR": 17,
+        "AND": 0,
+        "OR": 0,
         "XOR": 0,
-        "NOT": 5,
-        "MUX": 293,
+        "NOT": 0,
+        "MUX": 0,
         "DFF": 0
       },
-      "local_total": 398,
+      "local_total": 0,
       "total": {
-        "AND": 83,
-        "OR": 17,
+        "AND": 0,
+        "OR": 0,
         "XOR": 0,
-        "NOT": 5,
-        "MUX": 293,
+        "NOT": 0,
+        "MUX": 480,
         "DFF": 0
       },
-      "total_gates": 398,
-      "instances": {}
+      "total_gates": 480,
+      "instances": {
+        "shiftleft": 1,
+        "shiftright": 2
+      }
+    },
+    {
+      "module": "shiftleft",
+      "blackbox": false,
+      "local": {
+        "AND": 0,
+        "OR": 0,
+        "XOR": 0,
+        "NOT": 0,
+        "MUX": 0,
+        "DFF": 0
+      },
+      "local_total": 0,
+      "total": {
+        "AND": 0,
+        "OR": 0,
+        "XOR": 0,
+        "NOT": 0,
+        "MUX": 160,
+        "DFF": 0
+      },
+      "total_gates": 160,
+      "instances": {
+        "mux2": 5
+      }
+    },
+    {
+      "module": "shiftright",
+      "blackbox": false,
+      "local": {
+        "AND": 0,
+        "OR": 0,
+        "XOR": 0,
+        "NOT": 0,
+        "MUX": 0,
+        "DFF": 0
+      },
+      "local_total": 0,
+      "total": {
+        "AND": 0,
+        "OR": 0,
+        "XOR": 0,
+        "NOT": 0,
+        "MUX": 160,
+        "DFF": 0
+      },
+      "total_gates": 160,
+      "instances": {
+        "mux2": 5
+      }
+    },
+    {
+      "module": "storealign",
+      "blackbox": false,
+      "local": {
+        "AND": 4,
+        "OR": 6,
+        "XOR": 0,
+        "NOT": 2,
+        "MUX": 0,
+        "DFF": 0
+      },
+      "local_total": 12,
+      "total": {
+        "AND": 4,
+        "OR": 6,
+        "XOR": 0,
+        "NOT": 2,
+        "MUX": 64,
+        "DFF": 0
+      },
+      "total_gates": 76,
+      "instances": {
+        "mux3": 1
+      }
     },
     {
       "module": "top",
@@ -582,18 +718,41 @@
       },
       "local_total": 0,
       "total": {
-        "AND": 772,
-        "OR": 522,
-        "XOR": 259,
-        "NOT": 42,
-        "MUX": 542,
+        "AND": 350,
+        "OR": 218,
+        "XOR": 260,
+        "NOT": 28,
+        "MUX": 1157,
         "DFF": 32
       },
-      "total_gates": 2169,
+      "total_gates": 2045,
       "instances": {
         "ram": 1,
         "riscvsingle": 1
       }
+    },
+    {
+      "module": "zerodetect",
+      "blackbox": false,
+      "local": {
+        "AND": 1,
+        "OR": 30,
+        "XOR": 0,
+        "NOT": 2,
+        "MUX": 0,
+        "DFF": 0
+      },
+      "local_total": 33,
+      "total": {
+        "AND": 1,
+        "OR": 30,
+        "XOR": 0,
+        "NOT": 2,
+        "MUX": 0,
+        "DFF": 0
+      },
+      "total_gates": 33,
+      "instances": {}
     }
   ]
 }

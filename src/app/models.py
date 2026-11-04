@@ -272,11 +272,22 @@ class ViewNode(Strict):
     label: str
     module: str | None = Field(default=None, description="module type, or gate kind")
     path: str | None = Field(default=None, description="hierarchical path, for blocks")
-    drill: Literal["blocks", "gates", "adder"] | None = Field(
+    drill: Literal["blocks", "gates", "adder", "registers"] | None = Field(
         default=None, description="what opening this block shows; null if it cannot be opened"
     )
     gate_count: int | None = None
+    stage: Literal["IF", "ID", "EX", "MEM", "WB"] | None = Field(
+        default=None, description="the textbook stage this node belongs to (datapath only)"
+    )
     ports: list[ViewPort]
+
+
+class Stage(Strict):
+    """One of the five textbook steps of an instruction, as drawn on the datapath."""
+
+    id: Literal["IF", "ID", "EX", "MEM", "WB"]
+    name: str = Field(description="e.g. 'fetch'")
+    note: str = Field(description="what happens in this stage, in one line")
 
 
 class ViewEdge(Strict):
@@ -302,18 +313,40 @@ class ViewEdge(Strict):
     changed: bool
 
 
+class RegisterRow(Strict):
+    """One register of the register file in one cycle.
+
+    ``value`` is the register's contents during the cycle (before the clock
+    edge that ends it). ``read_by`` names the read ports that select it, and
+    ``written`` is the value stored into it at that edge, or null.
+    """
+
+    index: int = Field(ge=0, le=31)
+    name: str = Field(description="ABI name, e.g. 'a0'")
+    value: str
+    read_by: list[Literal["rd1", "rd2"]]
+    written: str | None
+
+
 class ModuleView(Strict):
-    """One module in one cycle: a graph (blocks or gates) or the adder drawing."""
+    """One module in one cycle: a graph of blocks or gates, the adder, or the registers."""
 
     path: str = Field(description="e.g. 'top.rv.dp' (the datapath)")
     module: str
-    kind: Literal["blocks", "gates", "adder"]
+    kind: Literal["blocks", "gates", "adder", "registers"]
     breadcrumbs: list[Breadcrumb]
     cycle: int
     gate_count: int
     nodes: list[ViewNode]
     edges: list[ViewEdge]
     svg: str | None = Field(description="the drawing, for kind 'adder'")
+    registers: list[RegisterRow] | None = Field(
+        default=None, description="the 32 registers, for kind 'registers'"
+    )
+    stages: list[Stage] | None = Field(
+        default=None,
+        description="the five stages in order, left to right (the datapath only)",
+    )
 
 
 class Health(Strict):

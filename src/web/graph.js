@@ -47,6 +47,42 @@ function portLayout(n, width, p, rowIn, rowOut) {
   return { "elk.port.side": side, x: p.direction === "in" ? -4 : width, y: HEADER + PIN_STEP * row + 4 };
 }
 
+function stageIndex(view, n) {
+  return view.stages.findIndex((s) => s.id === n.stage);
+}
+
+const BAND_HEAD = 46; // room above the drawing for each stage's name and note
+
+/** One shaded, labelled band per stage, spanning the columns elk gave its nodes. */
+function drawStages(view, graph, laidNodes) {
+  const spans = view.stages.map(() => [Infinity, -Infinity]);
+  for (const n of view.nodes) {
+    const laid = laidNodes.get(n.id);
+    const i = stageIndex(view, n);
+    if (!laid || i < 0) continue;
+    spans[i][0] = Math.min(spans[i][0], laid.x);
+    spans[i][1] = Math.max(spans[i][1], laid.x + laid.width);
+  }
+  // Bands meet halfway between neighbouring columns, so they tile the width.
+  const edges = [-12];
+  for (let i = 1; i < spans.length; i += 1) edges.push((spans[i - 1][1] + spans[i][0]) / 2);
+  edges.push(graph.width + 12);
+  const g = el("g", { class: "stages" });
+  view.stages.forEach((s, i) => {
+    const x = edges[i];
+    const w = edges[i + 1] - x;
+    const band = el("g", { class: `stage stage-${i % 2 ? "odd" : "even"}`, "data-stage": s.id });
+    band.append(
+      el("rect", { class: "stage-band", x, y: -BAND_HEAD, width: w, height: graph.height + BAND_HEAD + 12 }),
+      el("text", { class: "stage-name", x: x + 8, y: -BAND_HEAD + 16 }, `${s.id} · ${s.name}`),
+      el("text", { class: "stage-note", x: x + 8, y: -BAND_HEAD + 31 }, s.note),
+      el("title", {}, `${s.id} (${s.name}): ${s.note}`),
+    );
+    g.append(band);
+  });
+  return g;
+}
+
 function structureKey(view) {
   return JSON.stringify([view.nodes.map((n) => [n.id, n.ports.length]), view.edges.map((e) => e.id)]);
 }
@@ -69,16 +105,19 @@ async function layout(view) {
       "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
       "elk.layered.thoroughness": "30",
       "elk.edgeLabels.inline": "false",
+      // On the datapath, each stage the backend names is its own column.
+      ...(view.stages ? { "elk.partitioning.activate": "true" } : {}),
     },
     children: view.nodes.map((n) => {
       const [width, height] = nodeSize(n);
       let rowIn = 0;
       let rowOut = 0;
+      const column = view.stages ? { "elk.partitioning.partition": String(stageIndex(view, n)) } : {};
       return {
         id: n.id,
         width,
         height,
-        layoutOptions: { "elk.portConstraints": isBox(n) ? "FIXED_POS" : "FIXED_ORDER" },
+        layoutOptions: { "elk.portConstraints": isBox(n) ? "FIXED_POS" : "FIXED_ORDER", ...column },
         ports: n.ports.map((p) => {
           const opts = portLayout(n, width, p, rowIn, rowOut);
           if (p.direction === "in") rowIn += 1;
@@ -181,8 +220,46 @@ function edgeClass(e) {
   return cls.join(" ");
 }
 
+/** The register file as a table: every value and mark comes from the view. */
+function drawRegisters(container, view) {
+  const table = document.createElement("table");
+  table.className = "registers";
+  table.setAttribute("aria-label", `register file, cycle ${view.cycle}`);
+  const head = document.createElement("tr");
+  for (const h of ["register", "name", "value", "read by", "stored at the clock edge"]) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    head.append(th);
+  }
+  table.append(head);
+  for (const r of view.registers) {
+    const tr = document.createElement("tr");
+    tr.dataset.register = String(r.index);
+    if (r.read_by.length) tr.classList.add("read");
+    if (r.written !== null) tr.classList.add("written");
+    const cells = [`x${r.index}`, r.name, r.value, r.read_by.join(", "), r.written ?? ""];
+    for (const value of cells) {
+      const td = document.createElement("td");
+      td.textContent = value;
+      tr.append(td);
+    }
+    table.append(tr);
+  }
+  const note = document.createElement("p");
+  note.className = "registers-note";
+  note.textContent =
+    "The register file is memory, so it is shown as a table, not as gates. " +
+    "Values are the registers' contents during this cycle.";
+  container.replaceChildren(note, table);
+  container.dataset.path = view.path;
+}
+
 /** Draw `view` into `container`. `onOpen(path)` is called when a block is opened. */
 export async function drawModule(container, view, onOpen) {
+  if (view.kind === "registers") {
+    drawRegisters(container, view);
+    return;
+  }
   if (view.kind === "adder") {
     const doc = new DOMParser().parseFromString(view.svg, "image/svg+xml");
     const opening = container.dataset.path !== view.path;
@@ -195,11 +272,12 @@ export async function drawModule(container, view, onOpen) {
   const laidNodes = new Map(graph.children.map((c) => [c.id, c]));
   const laidEdges = new Map(graph.edges.map((e) => [e.id, e]));
   const pad = 20;
+  const top = pad + (view.stages ? BAND_HEAD : 0);
   const svg = el("svg", {
     class: "netview",
-    viewBox: `${-pad} ${-pad} ${graph.width + 2 * pad} ${graph.height + 2 * pad}`,
+    viewBox: `${-pad} ${-top} ${graph.width + 2 * pad} ${graph.height + pad + top}`,
     width: graph.width + 2 * pad,
-    height: graph.height + 2 * pad,
+    height: graph.height + pad + top,
     role: "img",
     "aria-label": `${view.module}, cycle ${view.cycle}`,
   });
@@ -228,7 +306,18 @@ export async function drawModule(container, view, onOpen) {
     const laid = laidNodes.get(n.id);
     if (laid) boxes.append(drawNode(n, laid, onOpen));
   }
-  svg.append(wires, boxes);
-  container.replaceChildren(svg);
+  if (!view.stages) {
+    svg.append(wires, boxes);
+    container.replaceChildren(svg);
+    container.dataset.path = view.path;
+    return;
+  }
+  svg.append(drawStages(view, graph, laidNodes), wires, boxes);
+  const note = document.createElement("p");
+  note.className = "stages-note";
+  note.textContent =
+    "In this single-cycle core all five stages happen within one clock cycle; " +
+    "the registers, memory and PC change only at the clock edge that ends it.";
+  container.replaceChildren(note, svg);
   container.dataset.path = view.path;
 }

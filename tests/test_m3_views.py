@@ -62,8 +62,8 @@ def test_datapath_has_the_textbook_blocks(fresh_dir: Path) -> None:
     blocks = {n.id: n.module for n in view.nodes if n.kind == "block"}
     assert blocks == {
         "pcreg": "flopr",
-        "pcadd4": "adder",
-        "pcaddbranch": "adder",
+        "pcadd4": "adder32",
+        "pcaddbranch": "adder32",
         "pcmux": "mux3",
         "rf": "regfile",
         "ext": "extend",
@@ -75,7 +75,8 @@ def test_datapath_has_the_textbook_blocks(fresh_dir: Path) -> None:
     }
     drill = {n.id: n.drill for n in view.nodes if n.kind == "block"}
     assert drill["alu"] == "blocks" and drill["pcmux"] == "gates"
-    assert drill["rf"] is None and drill["lsu"] is None
+    assert drill["pcadd4"] == "adder" and drill["lsu"] == "blocks"
+    assert drill["rf"] == "registers"
 
 
 def _check_view(view: ModuleView, cycle: Cycle, prev: Cycle | None) -> None:
@@ -110,7 +111,7 @@ def test_every_wire_of_every_view_carries_the_trace_value(
     for path in view_paths:
         for n in sample:
             view = pipeline.get_module_view(path, n, fresh_dir)
-            if view.kind == "adder":
+            if view.kind in ("adder", "registers"):
                 continue
             _check_view(view, cycles[n], cycles[n - 1] if n > 0 else None)
 

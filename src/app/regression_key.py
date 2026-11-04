@@ -2,10 +2,10 @@
 
 Each plant is one small text edit to a copy of the repository. ``make
 regression`` applies it and runs the copy through the same stages a developer
-would after an edit (``make artifacts``, then ``make test``, then the smoke
-check against a server started from the copy). The plant behaves as the key
-says when the first stage to fail is ``caught_at`` and its output contains
-``message``.
+would after an edit (``make artifacts``, then ``make test``, then ``make
+spot-check``, then the smoke check against a server started from the copy).
+The plant behaves as the key says when the first stage to fail is
+``caught_at`` and its output contains ``message``.
 
 A plant with ``caught_at=None`` is a known blind spot: every stage must pass,
 and the regenerated artifacts must differ from the committed ones, which
@@ -20,8 +20,8 @@ catches a defect once the artifacts are rebuilt from it.
 from dataclasses import dataclass
 from typing import Literal
 
-Stage = Literal["artifacts", "tests", "smoke"]
-STAGES: tuple[Stage, ...] = ("artifacts", "tests", "smoke")
+Stage = Literal["artifacts", "tests", "spotcheck", "smoke"]
+STAGES: tuple[Stage, ...] = ("artifacts", "tests", "spotcheck", "smoke")
 
 
 @dataclass(frozen=True)
@@ -80,9 +80,35 @@ PLANTS: tuple[Plant, ...] = (
         ),
     ),
     Plant(
+        name="registers_drawn_as_zero",
+        defect="the page's register table shows every register as 0",
+        file="src/web/graph.js",
+        old="const cells = [`x${r.index}`, r.name, r.value,",
+        new='const cells = [`x${r.index}`, r.name, "0x00000000",',
+        caught_at="smoke",
+        message="the register table shows other values than the API",
+        why=(
+            "The backend's table is right, so artifacts, tests and the spot-check "
+            "pass; only the smoke check reads the values off the rendered table."
+        ),
+    ),
+    Plant(
+        name="lsu_without_a_stage",
+        defect="the load/store unit is left out of the datapath's stage table",
+        file="src/app/views/module.py",
+        old='    "lsu": "MEM",\n',
+        new="",
+        caught_at="tests",
+        message="datapath nodes without a stage: lsu",
+        why=(
+            "No hardware changes, so artifacts pass; the backend refuses to build a "
+            "datapath view with an unlabelled block, and the stage tests name it."
+        ),
+    ),
+    Plant(
         name="start_one_cycle_late",
         defect="the backend opens the page one cycle after the loop closes",
-        file="src/app/views.py",
+        file="src/app/views/cycle.py",
         old="return StartCycle(cycle=n, reason=LOOPS_BACK)",
         new="return StartCycle(cycle=n + 1, reason=LOOPS_BACK)",
         caught_at="tests",
@@ -96,17 +122,31 @@ PLANTS: tuple[Plant, ...] = (
         name="sra_as_srl",
         defect="the shifter's arithmetic right shift fills with 0s instead of the sign bit",
         file="backend/rtl/shifter.sv",
-        old="assign y_sra = $signed(a) >>> shamt;",
-        new="assign y_sra = a >> shamt;",
+        old="shiftright asr (.a(a), .shamt(shamt), .fill(a[31]), .y(y_sra));",
+        new="shiftright asr (.a(a), .shamt(shamt), .fill(1'b0), .y(y_sra));",
+        caught_at="spotcheck",
+        message="cycle 55 rv.dp.alu.sh.y_sra (shifter) is 0x8000, should be 0xffff8000",
+        why=(
+            "sum.c never runs an sra instruction, so Spike, which compares only pc, "
+            "instruction and register writes, sees nothing, and gate level and RTL agree "
+            "on the wrong design. But the shifter computes y_sra every cycle, and the "
+            "spot-check's model of the shifter says 0x80000020 >> 16 is 0xffff8000. "
+            "(A blind spot until M4.)"
+        ),
+    ),
+    Plant(
+        name="sltu_decoded_as_slt",
+        defect="the ALU decoder sends sltu to the ALU as slt (signed instead of unsigned)",
+        file="backend/rtl/aludec.sv",
+        old="3'b011:  alucontrol = 4'b0110;",
+        new="3'b011:  alucontrol = 4'b0101;",
         caught_at=None,
         message="",
         why=(
-            "A known blind spot. sum.c never runs an sra instruction, but the shifter "
-            "computes y_sra every cycle, so the rebuilt trace does change (cycle 55: "
-            "0x80000020 >> 16 gives 0x00008000, not 0xffff8000). Nothing notices: "
-            "Spike compares only pc, instruction and register writes, and gate level "
-            "and RTL agree on the wrong design. Programs that run every instruction "
-            "come with M5."
+            "A known blind spot. sum.c never runs sltu or sltiu, so Spike sees nothing, "
+            "and gate level and RTL agree on the wrong design. The spot-check models "
+            "the datapath units, not the decoders: the ALU does exactly what the wrong "
+            "alucontrol asks. Programs that run every instruction come with M5."
         ),
     ),
 )

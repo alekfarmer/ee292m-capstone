@@ -29,8 +29,8 @@ module datapath (
 
     // Next PC
     flopr pcreg (.clk(clk), .reset(reset), .d(pcnext), .q(pc));
-    adder pcadd4 (.a(pc), .b(32'd4), .y(pcplus4));
-    adder pcaddbranch (.a(pc), .b(immext), .y(pctarget));
+    adder32 pcadd4 (.a(pc), .b(32'd4), .cin(1'b0), .s(pcplus4), .cout());
+    adder32 pcaddbranch (.a(pc), .b(immext), .cin(1'b0), .s(pctarget), .cout());
     assign jalrtarget = {aluresult[31:1], 1'b0};
     mux3 pcmux (.d0(pcplus4), .d1(pctarget), .d2(jalrtarget), .s(pcsrc), .y(pcnext));
 

@@ -7,7 +7,8 @@ changes. The rules that apply to every task are in AGENTS.md.
 ## Current state
 
 M0 (gate-level spike), M1 (software pipeline), M2 (whole-core
-simulation) and M3 (linked, steppable views) are built:
+simulation), M3 (linked, steppable views) and M4 (drill-down to gates) are
+built:
 
 - `backend/rtl/` is a single-cycle RV32I core in SystemVerilog (MIT, see
   `docs/core-choice.md`); `synth.ys` synthesizes it with Yosys, keeping
@@ -22,11 +23,15 @@ simulation) and M3 (linked, steppable views) are built:
   page (`src/web/`) shows C, assembly, machine code and the hardware (opening
   on the datapath) for any cycle, with stepping by cycle or by C line. It
   opens on the cycle `/api/start` names (see Backend).
+- Every block opens: down to its gates, to the adder's textbook drawing, or,
+  for the register file, to a table of its 32 registers. The RAM alone does
+  not open.
+- `make spot-check` checks every drawn bit of every view in every cycle, and
+  every datapath unit against an independent model.
 - `make regression` plants the defects in the answer key
   (`src/app/regression_key.py`) and checks what catches each.
 
-Not built yet: gate-level views of the large modules (M4): the ALU shifter
-and result mux, the load/store unit, the PC adders, and the ALU's glue logic.
+Not built yet: user-entered C (M5, the stretch goal).
 
 ## Stack
 
@@ -35,6 +40,8 @@ and result mux, the load/store unit, the PC adders, and the ALU's glue logic.
   build; `make base-digests` prints the current digests when upgrading) and FastAPI, with typed request and response models; `/docs` is the
   contract.
 - Frontend: static HTML and JavaScript, with no build step for our own code.
+  The API serves these files with `Cache-Control: no-cache`, so an update is
+  never hidden behind a stale copy.
   It uses whichever library suits the view (Plotly for plots, D3 for custom
   charts, three.js for 3D); the plan names it and says why. The page uses
   elkjs (`docker/package.json`) to place boxes and route wires for views
@@ -72,10 +79,12 @@ src/app/             the backend: api.py (routes only), pipeline.py (entry
                      points), models.py, and the steps they call:
                      software.py (gcc, objdump, Spike), hardware.py (Yosys),
                      simulate.py (whole-core runs and checks), vcd.py,
-                     decode.py (instruction fields), views.py (per-cycle and
+                     decode.py (instruction fields), views/ (trace.py,
+                     cycle.py, module.py, registers.py: per-cycle and
                      module views), render.py (adder SVG), tools.py,
                      errors.py, paths.py, pagecheck.py (headless Chromium),
                      cli.py (`make artifacts`), smoke.py (`make smoke`),
+                     spotcheck.py (`make spot-check`),
                      regression.py and regression_key.py (`make regression`)
 src/web/             the page: index.html, app.js (panes, stepping),
                      graph.js (elk layout and drawing), styles.css
@@ -118,12 +127,36 @@ Makefile  README.md  ARCHITECTURE.md  AGENTS.md  CLAUDE.md
   message (file and line where known). Checks: the preprocessed source
   (no float/double, no `*` `/` `%`), the linker (undefined libc symbols,
   RAM overflow) and Spike (no halt within 500 retired instructions).
-- Views: `views.py` turns any module of the netlist into a graph (its
+- Views: `views/module.py` turns any module of the netlist into a graph (its
   ports, blocks or gates, constants, and the wires between them, each wire
   naming its trace signal and bit range) with values for one cycle. Modules
   made only of gates get one pin per bus bit; a block view with more than 40
-  loose gates groups them into one "glue logic" node. Which modules open, and
-  how, is set by `GATE_MODULES` and `BLOCK_ONLY` there.
+  loose gates groups them into one "glue logic" node (no module has that
+  many since M4). `GATE_MODULES` there names the modules whose gates are
+  drawn one by one. `adder32` opens to the textbook drawing (`render.py`),
+  and the register file to a table (`views/registers.py`); a register the
+  simulator never recorded is shown as its initial 0, which is checked to
+  hold (nothing ever stores into it).
+- The datapath view carries the five textbook stages (`STAGES`) and each
+  node's stage (`DATAPATH_STAGES` in `views/module.py`; constants take the
+  stage of the block they feed). A datapath node without a stage is an
+  error, not a silent gap. The page gives elk one partition per stage, so
+  each stage is a column, and draws a labelled band behind each. Other
+  views have no stages.
+- The RTL keeps every module small enough to draw (at most 96 gates of its
+  own): large units are built from structural blocks (barrel shifters of
+  `mux2` stages, a `mux2` tree for the ALU result, `storealign` /
+  `loadalign` / `loadextend`, `binvert`, `zerodetect`), because ABC turns
+  a large behavioural module into gates no reader can follow.
+- `make spot-check` (`spotcheck.py`) asks the pipeline for every view of
+  every program in every cycle, as the API serves them, and checks each
+  wire against the trace, each gate against its function, the adder
+  drawings, and the register table against its ports. It then checks every
+  instance of a datapath unit against a model written there from the RV32I
+  specification (`MODELS`), on that unit's inputs in the trace. The
+  decoders have no model. `make test` runs it on three sampled cycles and
+  tests that it catches planted wrong values; `make spot-check` runs it on
+  every cycle.
 - Programs compile with `-march=rv32i -mabi=ilp32 -Og -g -nostdlib
   -ffreestanding` (`-O1` folds `sum.c` to a constant; see README).
 - Halt convention: `crt0.S` stores `(a0 << 1) | 1` to `tohost`. Spike exits
@@ -136,7 +169,7 @@ Makefile  README.md  ARCHITECTURE.md  AGENTS.md  CLAUDE.md
   way. The page says why it opened there only when no link chose the cycle.
 - `make regression` copies the repository to
   `backend/build/regression/<plant>/`, makes one plant's edit there, and runs
-  that copy's `app.cli artifacts`, `pytest` and `app.smoke` (against a server
+  that copy's `app.cli artifacts`, `pytest`, `app.spotcheck` and `app.smoke` (against a server
   from the copy on port 8001, its output in the copy's `server.log`) until
   one fails. The answer key names the stage and message that must catch each
   plant, or none for a known blind spot, which must then still have changed
@@ -158,7 +191,7 @@ Named in README ("How the code is organized") and enforced by
   only it plus `models`, `errors` and `paths`.
 - The steps (`software`, `hardware`, `simulate`, `views`, `render`, `decode`,
   `vcd`, `tools`) never import the facade, the adapters or the checks.
-  The checks (`smoke`, `pagecheck`, `regression`) are adapters too.
+  The checks (`smoke`, `pagecheck`, `spotcheck`, `regression`) are adapters too.
 - Only `tools.py` starts external programs (`run_tool`, `ToolStream`).
 - The page fetches through one helper, and only from `/api/`.
 
@@ -209,7 +242,7 @@ Everyday, the only ones a user needs:
   the image there already carries this checkout's fingerprint (compose labels
   every build with it), so a pulled image is never rebuilt.
 - `up` and `down`: start and stop the app.
-- `verify`: check that it all works (lint, test, smoke). Must pass from a
+- `verify`: check that it all works (lint, test, spot-check, smoke). Must pass from a
   fresh clone with only Docker, Make and git installed.
 - `clean`: return to the state of a fresh clone. This project's containers,
   images and generated files are removed; `data/raw/` and `.env` are kept, and
@@ -227,10 +260,12 @@ While developing:
   `backend/build/screenshots/` (headless Chromium in the container).
 - `test`: run the tests (`ARGS=...` is passed to pytest). `lint`: check the code, changing nothing. `fmt`:
   rewrite the code into the standard format.
+- `spot-check`: check every drawn bit of every view in every cycle, and every
+  datapath unit against an independent model (about 6 seconds).
 - `smoke`: start the app, check a real API result (not just a status code),
   stop it again.
 - `regression`: plant each defect in the answer key and check that the stage
-  the key names catches it (`PLANT=name` for one), in about 30 seconds.
+  the key names catches it (`PLANT=name` for one), in about a minute.
 - `logs` and `shell`: follow the app's output; open a shell inside the
   container.
 

@@ -16,9 +16,21 @@ WEB = REPO_ROOT / "src" / "web"
 SHARED = {"models", "errors", "paths"}
 
 
+def module_files(module: str) -> list[Path]:
+    """The source of ``app.<module>``: one file, or every file of a package."""
+    package = APP / module
+    return sorted(package.rglob("*.py")) if package.is_dir() else [APP / f"{module}.py"]
+
+
 def app_imports(module: str) -> set[str]:
-    """The ``app.*`` modules that ``src/app/<module>.py`` imports."""
-    tree = ast.parse((APP / f"{module}.py").read_text())
+    """The other ``app.*`` modules that ``app.<module>`` (file or package) imports."""
+    found: set[str] = set()
+    for path in module_files(module):
+        found |= _app_imports_of(ast.parse(path.read_text()))
+    return found - {module}
+
+
+def _app_imports_of(tree: ast.Module) -> set[str]:
     found: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module:
@@ -54,7 +66,7 @@ def test_only_tools_starts_external_programs() -> None:
     """Every gcc, objdump, Spike, Yosys, Icarus and Chromium call goes through tools.py."""
     offenders = [
         p.name
-        for p in sorted(APP.glob("*.py"))
+        for p in sorted(APP.rglob("*.py"))
         if p.name != "tools.py" and {"subprocess", "os"} & stdlib_imports(p)
     ]
     assert not offenders, f"start external programs outside tools.py: {offenders}"

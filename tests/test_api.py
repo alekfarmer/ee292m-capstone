@@ -48,6 +48,16 @@ def test_page_is_served() -> None:
     assert "<title>C to Gates</title>" in resp.text
 
 
+def test_page_files_are_revalidated_so_an_update_is_never_stale() -> None:
+    """A browser may keep a file but must ask again before using it (a 304 if unchanged)."""
+    for path in ("/", "/app.js", "/graph.js", "/styles.css"):
+        resp = client.get(path)
+        assert resp.status_code == 200, path
+        assert resp.headers.get("cache-control") == "no-cache", path
+    etag = client.get("/graph.js").headers["etag"]
+    assert client.get("/graph.js", headers={"if-none-match": etag}).status_code == 304
+
+
 def test_cycle_and_view_endpoints() -> None:
     cv = client.get("/api/cycle/0").json()
     assert cv["pc"] == "0x80000000" and cv["cycle"] == 0
@@ -55,6 +65,8 @@ def test_cycle_and_view_endpoints() -> None:
     assert view["module"] == "datapath" and view["kind"] == "blocks"
     pc = next(e for e in view["edges"] if e["target"] == "out:pc")
     assert pc["value"] == "0x80000000"
+    assert [s["id"] for s in view["stages"]] == ["IF", "ID", "EX", "MEM", "WB"]
+    assert {n["id"]: n["stage"] for n in view["nodes"]}["alu"] == "EX"
 
 
 def test_view_inputs_are_validated() -> None:
