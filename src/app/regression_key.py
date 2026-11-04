@@ -82,7 +82,7 @@ PLANTS: tuple[Plant, ...] = (
     Plant(
         name="start_one_cycle_late",
         defect="the backend opens the page one cycle after the loop closes",
-        file="src/app/views.py",
+        file="src/app/views/cycle.py",
         old="return StartCycle(cycle=n, reason=LOOPS_BACK)",
         new="return StartCycle(cycle=n + 1, reason=LOOPS_BACK)",
         caught_at="tests",
@@ -96,8 +96,8 @@ PLANTS: tuple[Plant, ...] = (
         name="sra_as_srl",
         defect="the shifter's arithmetic right shift fills with 0s instead of the sign bit",
         file="backend/rtl/shifter.sv",
-        old="assign y_sra = $signed(a) >>> shamt;",
-        new="assign y_sra = a >> shamt;",
+        old="shiftright asr (.a(a), .shamt(shamt), .fill(a[31]), .y(y_sra));",
+        new="shiftright asr (.a(a), .shamt(shamt), .fill(1'b0), .y(y_sra));",
         caught_at=None,
         message="",
         why=(

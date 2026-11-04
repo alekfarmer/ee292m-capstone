@@ -7,12 +7,15 @@
 
 read_verilog -sv -lib backend/rtl/regfile.sv backend/rtl/ram.sv
 read_verilog -sv backend/rtl/full_adder.sv backend/rtl/adder32.sv
-read_verilog -sv backend/rtl/logicunit.sv backend/rtl/shifter.sv backend/rtl/resultmux.sv
+read_verilog -sv backend/rtl/logicunit.sv backend/rtl/binvert.sv backend/rtl/zerodetect.sv
+read_verilog -sv backend/rtl/shiftleft.sv backend/rtl/shiftright.sv backend/rtl/shifter.sv
+read_verilog -sv backend/rtl/resultmux.sv
 read_verilog -sv backend/rtl/alu.sv
 read_verilog -sv backend/rtl/maindec.sv backend/rtl/aludec.sv backend/rtl/branchunit.sv
-read_verilog -sv backend/rtl/controller.sv backend/rtl/extend.sv backend/rtl/lsu.sv
+read_verilog -sv backend/rtl/controller.sv backend/rtl/extend.sv
+read_verilog -sv backend/rtl/storealign.sv backend/rtl/loadalign.sv backend/rtl/loadextend.sv backend/rtl/lsu.sv
 read_verilog -sv backend/rtl/flopr.sv backend/rtl/mux2.sv backend/rtl/mux3.sv
-read_verilog -sv backend/rtl/adder.sv backend/rtl/datapath.sv backend/rtl/riscvsingle.sv
+read_verilog -sv backend/rtl/datapath.sv backend/rtl/riscvsingle.sv
 read_verilog -sv backend/rtl/top.sv
 
 hierarchy -check -top top
