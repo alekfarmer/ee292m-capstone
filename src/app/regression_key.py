@@ -93,6 +93,19 @@ PLANTS: tuple[Plant, ...] = (
         ),
     ),
     Plant(
+        name="lsu_without_a_stage",
+        defect="the load/store unit is left out of the datapath's stage table",
+        file="src/app/views/module.py",
+        old='    "lsu": "MEM",\n',
+        new="",
+        caught_at="tests",
+        message="datapath nodes without a stage: lsu",
+        why=(
+            "No hardware changes, so artifacts pass; the backend refuses to build a "
+            "datapath view with an unlabelled block, and the stage tests name it."
+        ),
+    ),
+    Plant(
         name="start_one_cycle_late",
         defect="the backend opens the page one cycle after the loop closes",
         file="src/app/views/cycle.py",

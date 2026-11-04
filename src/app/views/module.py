@@ -7,7 +7,7 @@ the register file a table (see :mod:`app.views.registers`).
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from app import hardware, render
 from app.errors import PipelineError
@@ -17,12 +17,15 @@ from app.models import (
     Breadcrumb,
     GateCountReport,
     ModuleView,
+    Stage,
     ViewEdge,
     ViewNode,
     ViewPort,
 )
 from app.views import registers
 from app.views.trace import TraceIndex
+
+StageId = Literal["IF", "ID", "EX", "MEM", "WB"]
 
 ROOT = "top"
 DEFAULT_VIEW = "top.rv.dp"  # the datapath, as in the textbook
@@ -40,6 +43,53 @@ GATE_MODULES = {
     "logicunit",
     "binvert",
     "zerodetect",
+}
+# The five textbook stages, drawn as columns on the datapath. In this
+# single-cycle core all five happen within one clock cycle.
+STAGES = [
+    Stage(id="IF", name="fetch", note="read the instruction at PC; choose the next PC"),
+    Stage(id="ID", name="decode", note="read the registers; build the immediate"),
+    Stage(id="EX", name="execute", note="the ALU computes a result, an address or a comparison"),
+    Stage(id="MEM", name="memory", note="load from or store to data memory"),
+    Stage(id="WB", name="write-back", note="choose the value written back to the register"),
+]
+STAGED_MODULE = "datapath"
+# Each datapath node's stage, as in the Patterson & Hennessy and Harris &
+# Harris figures. Ports sit with what they connect to: the instruction
+# memory (instr) in IF, data memory (readword, writedata, byteen) in MEM, and
+# each control signal with the block it steers. Constants take the stage of
+# the block they feed.
+DATAPATH_STAGES: dict[str, StageId] = {
+    "pcreg": "IF",
+    "pcadd4": "IF",
+    "pcmux": "IF",
+    "in:clk": "IF",
+    "in:reset": "IF",
+    "in:pcsrc": "IF",
+    "in:instr": "IF",
+    "out:pc": "IF",
+    "rf": "ID",
+    "ext": "ID",
+    "in:regwrite": "ID",
+    "in:immsrc": "ID",
+    "srcamux": "EX",
+    "srcbmux": "EX",
+    "alu": "EX",
+    "pcaddbranch": "EX",
+    "in:srcasel": "EX",
+    "in:alusrc": "EX",
+    "in:alucontrol": "EX",
+    "out:zero": "EX",
+    "out:neg": "EX",
+    "out:ovf": "EX",
+    "out:carry": "EX",
+    "lsu": "MEM",
+    "in:readword": "MEM",
+    "out:aluresult": "MEM",
+    "out:writedata": "MEM",
+    "out:byteen": "MEM",
+    "resultmux": "WB",
+    "in:resultsrc": "WB",
 }
 # A block view with more loose gates than this groups them into one node.
 LOOSE_GATES_MAX = 40
@@ -307,6 +357,8 @@ def module_view(
     nodes = _build_nodes(netlist, module, path, totals)
     edges = _build_edges(netlist["modules"][module], nodes, prefix, cycle, index)
     kind = "gates" if any(n.kind == "gate" for n in nodes) else "blocks"
+    consts = _consts_seen(edges)
+    stage = _stages(module, [n.id for n in nodes], edges)
     return ModuleView(
         path=path,
         module=module,
@@ -323,6 +375,7 @@ def module_view(
                 path=n.path,
                 drill=n.drill,
                 gate_count=n.gate_count,
+                stage=stage.get(n.id),
                 ports=[
                     ViewPort(name=p.name, direction=p.direction, width=len(p.bits)) for p in n.ports
                 ],
@@ -334,13 +387,33 @@ def module_view(
                 id=c_id,
                 kind="const",
                 label=label,
+                stage=stage.get(c_id),
                 ports=[ViewPort(name="y", direction="out", width=w)],
             )
-            for c_id, (label, w) in _consts_seen(edges).items()
+            for c_id, (label, w) in consts.items()
         ],
         edges=edges,
         svg=None,
+        stages=STAGES if module == STAGED_MODULE else None,
     )
+
+
+def _stages(module: str, node_ids: list[str], edges: list[ViewEdge]) -> dict[str, StageId]:
+    """Each node's stage, for the datapath; empty for every other module.
+
+    Raises:
+        PipelineError: a datapath node has no stage in ``DATAPATH_STAGES``.
+    """
+    if module != STAGED_MODULE:
+        return {}
+    missing = sorted(set(node_ids) - set(DATAPATH_STAGES))
+    if missing:
+        raise PipelineError(f"datapath nodes without a stage: {', '.join(missing)}")
+    stage = {n: DATAPATH_STAGES[n] for n in node_ids}
+    for e in edges:
+        if e.source.startswith("const:"):
+            stage[e.source] = stage[e.target]
+    return stage
 
 
 def _consts_seen(edges: list[ViewEdge]) -> dict[str, tuple[str, int]]:

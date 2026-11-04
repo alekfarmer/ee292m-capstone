@@ -55,6 +55,8 @@ def test_cycle_and_view_endpoints() -> None:
     assert view["module"] == "datapath" and view["kind"] == "blocks"
     pc = next(e for e in view["edges"] if e["target"] == "out:pc")
     assert pc["value"] == "0x80000000"
+    assert [s["id"] for s in view["stages"]] == ["IF", "ID", "EX", "MEM", "WB"]
+    assert {n["id"]: n["stage"] for n in view["nodes"]}["alu"] == "EX"
 
 
 def test_view_inputs_are_validated() -> None:

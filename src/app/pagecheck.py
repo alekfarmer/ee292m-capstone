@@ -70,6 +70,9 @@ def check_rendered_page(base: str = BASE) -> list[str]:
     wire = re.search(r'<path[^>]*data-signal="rv\.dp\.pc"[^>]*>', dom)
     if not wire or 'data-value="0x80000000"' not in wire.group(0):
         problems.append("the drawn pc wire does not show 0x80000000 in cycle 0")
+    stages = [_attr(g, "data-stage") for g in re.findall(r"<g\b[^>]*data-stage=[^>]*>", dom)]
+    if stages != ["IF", "ID", "EX", "MEM", "WB"]:
+        problems.append(f"the datapath's stage bands read {stages}, not IF ID EX MEM WB")
     if [_attr(t, "data-index") for t in _current(dom, "tr")] != ["0"]:
         problems.append("the first instruction is not the one highlighted in cycle 0")
     if _text_of(dom, "start-reason"):

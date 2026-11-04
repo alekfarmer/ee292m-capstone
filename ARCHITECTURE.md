@@ -135,6 +135,12 @@ Makefile  README.md  ARCHITECTURE.md  AGENTS.md  CLAUDE.md
   and the register file to a table (`views/registers.py`); a register the
   simulator never recorded is shown as its initial 0, which is checked to
   hold (nothing ever stores into it).
+- The datapath view carries the five textbook stages (`STAGES`) and each
+  node's stage (`DATAPATH_STAGES` in `views/module.py`; constants take the
+  stage of the block they feed). A datapath node without a stage is an
+  error, not a silent gap. The page gives elk one partition per stage, so
+  each stage is a column, and draws a labelled band behind each. Other
+  views have no stages.
 - The RTL keeps every module small enough to draw (at most 96 gates of its
   own): large units are built from structural blocks (barrel shifters of
   `mux2` stages, a `mux2` tree for the ALU result, `storealign` /

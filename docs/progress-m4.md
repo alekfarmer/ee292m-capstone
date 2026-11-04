@@ -67,6 +67,17 @@ Makefile.
   bug: the one-bit full adder's model used a 32-bit add. It was fixed in
   the model, not the design.
 
+## Stage labels (added after M4, same branch)
+
+After a question about multi-cycle processors, we kept the single-cycle
+core and labelled the five textbook stages on the datapath instead. The
+backend assigns each block its stage, as in the P&H and H&H figures: `rf` in
+ID, `pcmux` in IF, the branch-target adder in EX. The page draws the stages
+as five columns with bands, plus a note that all five happen in one clock
+cycle. Seen failing first: `tests/test_stages.py` failed (no stage data)
+before the backend had it. The plant `lsu_without_a_stage` is caught at
+tests, and smoke checks that the five bands are drawn in order.
+
 ## Known limits
 
 - **The decoders have no model.** `maindec`, `aludec` and `branchunit` are

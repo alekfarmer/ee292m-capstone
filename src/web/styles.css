@@ -10,6 +10,8 @@
   --changed: #f2b705;
   --current: #fff1c2;
   --selected: #dcebfa;
+  --stage-even: #efece4;
+  --stage-odd: #f7f6f2;
   --gate: #ffffff;
   --gate-line: #2d2d2a;
   --error-bg: #fde8e8;
@@ -35,6 +37,8 @@
     --changed: #f2c94c;
     --current: #4a3f12;
     --selected: #1f3a57;
+    --stage-even: #1c1c1a;
+    --stage-odd: #151514;
     --gate: #262624;
     --gate-line: #dcdbd6;
     --error-bg: #3b1717;
@@ -60,6 +64,8 @@
   --changed: #f2c94c;
   --current: #4a3f12;
   --selected: #1f3a57;
+  --stage-even: #1c1c1a;
+  --stage-odd: #151514;
   --gate: #262624;
   --gate-line: #dcdbd6;
   --error-bg: #3b1717;
@@ -186,6 +192,14 @@ svg.netview .pin { font-size: 9px; fill: var(--muted); }
 svg.netview .pin.in { text-anchor: start; }
 svg.netview .pin.out { text-anchor: end; }
 svg.netview .const .box { stroke-dasharray: 3 2; }
+
+/* The five stages on the datapath */
+.stages-note { margin: 8px 4px 2px; color: var(--muted); font-size: 0.85rem; }
+svg.netview .stage-band { stroke: none; }
+svg.netview .stage-even .stage-band { fill: var(--stage-even); }
+svg.netview .stage-odd .stage-band { fill: var(--stage-odd); }
+svg.netview .stage-name { text-anchor: start; font-size: 13px; font-weight: 700; fill: var(--accent); }
+svg.netview .stage-note { text-anchor: start; font-size: 10px; fill: var(--muted); }
 
 /* The register file (a table, not gates) */
 .registers-note { margin: 8px 4px; color: var(--muted); font-size: 0.85rem; }

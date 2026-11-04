@@ -191,6 +191,12 @@ modules are built from small structural blocks, so each view stays readable
 - the PC adders are ripple-carry `adder32`s, so they open to the textbook
   adder drawing.
 
+The datapath is laid out in the five textbook stages, left to right, each a
+labelled band: IF fetch, ID decode, EX execute, MEM memory and WB write-back.
+In this single-cycle core all five happen within one clock cycle; the bands
+show where each step happens, not when. The backend assigns each block's
+stage; the page only places the columns (elk partitioning) and draws the bands.
+
 The register file is memory (a black box in synthesis), so it opens as a
 table: the 32 registers in the cycle, the ones the read ports select, and the
 value stored at the clock edge. `make spot-check` (part of `make verify`,
@@ -225,6 +231,7 @@ artifacts`.
 | The page opens one cycle late (backend) | `make test`: `test_the_page_opens_on_the_first_sum_line` | No hardware changes, so the artifacts are right |
 | `sra` shifts in 0s like `srl` | spot-check: "cycle 55 rv.dp.alu.sh.y_sra (shifter) is 0x8000, should be 0xffff8000" | Spike compares only pc, instruction and register writes, and gate level and RTL agree; only the shifter's model sees it (a blind spot until M4) |
 | The register table drawn as all 0s on the page | smoke: "the register table shows other values than the API" | The backend's table is right |
+| The load/store unit left out of the stage table | `make test`: "datapath nodes without a stage: lsu" | No hardware changes, so the artifacts are right |
 | `sltu` decoded as `slt` | nothing (a known blind spot) | `sum.c` never runs `sltu`, and the spot-check models the datapath, not the decoders; programs that run every instruction come with M5 |
 
 The tripwire almost any wrong result moves is a0 = 55, checked two

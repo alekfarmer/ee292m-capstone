@@ -276,7 +276,18 @@ class ViewNode(Strict):
         default=None, description="what opening this block shows; null if it cannot be opened"
     )
     gate_count: int | None = None
+    stage: Literal["IF", "ID", "EX", "MEM", "WB"] | None = Field(
+        default=None, description="the textbook stage this node belongs to (datapath only)"
+    )
     ports: list[ViewPort]
+
+
+class Stage(Strict):
+    """One of the five textbook steps of an instruction, as drawn on the datapath."""
+
+    id: Literal["IF", "ID", "EX", "MEM", "WB"]
+    name: str = Field(description="e.g. 'fetch'")
+    note: str = Field(description="what happens in this stage, in one line")
 
 
 class ViewEdge(Strict):
@@ -331,6 +342,10 @@ class ModuleView(Strict):
     svg: str | None = Field(description="the drawing, for kind 'adder'")
     registers: list[RegisterRow] | None = Field(
         default=None, description="the 32 registers, for kind 'registers'"
+    )
+    stages: list[Stage] | None = Field(
+        default=None,
+        description="the five stages in order, left to right (the datapath only)",
     )
 
 
