@@ -96,7 +96,7 @@ def test_register_table_marks_the_registers_read(fresh_dir: Path) -> None:
 def test_the_spot_check_passes_on_fresh_artifacts(fresh_dir: Path, cycles: list[Cycle]) -> None:
     report = spotcheck.check_program("sum", fresh_dir, only_cycles=[0, 11, len(cycles) - 1])
     assert report.problems == []
-    assert report.wires > 10_000 and report.gates > 1_000 and report.unit_outputs > 10_000
+    assert report.wires > 10_000 and report.gates > 1_000 and report.unit_outputs > 500
     # Every unit that has gates of its own is either modelled or a decoder Spike covers.
     assert report.unmodelled <= {"maindec", "aludec", "branchunit", "controller"}
 

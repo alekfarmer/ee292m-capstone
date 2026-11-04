@@ -408,15 +408,21 @@ def instances(netlist: hardware.Netlist) -> list[tuple[str, str]]:
     return found
 
 
-def check_units(netlist: hardware.Netlist, cycles: list[Cycle], report: Report) -> None:
-    """Check 5: every modelled unit's outputs equal the model's, in every cycle."""
+def check_units(
+    netlist: hardware.Netlist,
+    cycles: list[Cycle],
+    report: Report,
+    only_cycles: list[int] | None = None,
+) -> None:
+    """Check 5: every modelled unit's outputs equal the model's (in ``only_cycles``, or all)."""
+    chosen = range(len(cycles)) if only_cycles is None else only_cycles
     modules: dict[str, Any] = netlist["modules"]
     for prefix, module in instances(netlist):
         ports = modules[module]["ports"]
         ins = [p for p, d in ports.items() if d["direction"] == "input"]
         outs = [p for p, d in ports.items() if d["direction"] == "output"]
         if module == "flopr":
-            for n in range(1, len(cycles)):
+            for n in (k for k in chosen if k > 0):
                 before, now = cycles[n - 1], cycles[n]
                 q = PC_RESET if before[prefix + "reset"] else before[prefix + "d"]
                 report.unit_outputs += 1
@@ -433,7 +439,8 @@ def check_units(netlist: hardware.Netlist, cycles: list[Cycle], report: Report) 
             if own_gates:
                 report.unmodelled.add(module)
             continue
-        for n, c in enumerate(cycles):
+        for n in chosen:
+            c = cycles[n]
             try:
                 want = model({p: c[prefix + p] for p in ins if p != "clk"})
             except (KeyError, ValueError) as exc:
@@ -478,7 +485,7 @@ def check_program(
             else:
                 check_wires(view, cycles, n, report)
                 check_gates(view, cycles, n, report)
-    check_units(netlist, cycles, report)
+    check_units(netlist, cycles, report, only_cycles)
     return report
 
 

@@ -32,9 +32,9 @@ The goal is that a viewer can click the `+` in `sum += i`, follow it to the
 `add` instruction, then to the ALU, then to the full adder computing bit 3,
 and see the actual 0s and 1s at that cycle.
 
-> Status: **M0–M3 done** (gate-level adder spike, software pipeline,
-> whole-core simulation, linked steppable views). M4 (gate-level views of
-> every module) is next. See `PROMPT.md` for the brief.
+> Status: **M0–M4 done** (gate-level adder spike, software pipeline,
+> whole-core simulation, linked steppable views, every block down to its
+> gates). M5 (user-entered C) is the stretch goal. See `PROMPT.md` for the brief.
 
 ## Quick start
 
@@ -49,7 +49,7 @@ make pull       # first time: a few minutes (downloads the image CI built and ve
 make build      # or build it yourself: ~15-25 min (Yosys and Spike from source)
 make up         # http://127.0.0.1:8000  (port: APP_PORT in .env, see .env.example)
 make down
-make verify     # the gate: build, lint, tests, smoke check
+make verify     # the gate: build, lint, tests, spot-check, smoke check
 make help       # every target
 ```
 
@@ -121,7 +121,7 @@ containers.
 | `backend/artifacts/` | Generated, committed (below) |
 | `src/app/` | Python backend: pipelines and the API (`/docs` lists the endpoints) |
 | `src/web/` | The page (plain HTML, JS and SVG) |
-| `tests/` | pytest: M0-M3, rejected programs, API, architecture, portability, image fingerprint |
+| `tests/` | pytest: M0-M4, rejected programs, API, architecture, portability, image fingerprint |
 
 Artifacts. The hardware ones sit in `backend/artifacts/`; each program's sit in
 a folder named after it (`backend/artifacts/sum/` for `sum.c`), so programs never
@@ -142,16 +142,17 @@ Gate counts (including submodules; register file and RAM count as 0):
 
 | Part | Module | Gates |
 |---|---|---|
-| Top level | `top` | 2169 |
+| Top level | `top` | 2045 |
 | Control unit | `controller` | 78 |
 | Main decoder | `maindec` | 39 |
 | ALU decoder | `aludec` | 25 |
-| Datapath | `datapath` | 2091 |
-| ALU | `alu` | 1175 |
-| ALU adder | `adder32` | 160 = 32 x (2 XOR + 2 AND + 1 OR) |
+| Datapath | `datapath` | 1967 |
+| ALU | `alu` | 1068 |
+| ALU adder, and each PC adder | `adder32` | 160 = 32 x (2 XOR + 2 AND + 1 OR) |
 | ALU logic unit | `logicunit` | 96 |
-| ALU shifter | `shifter` | 398 |
-| ALU result mux | `resultmux` | 439 |
+| ALU shifter | `shifter` | 480 = 3 shifters x 5 stages x 32 MUX |
+| ALU result mux | `resultmux` | 256 = a tree of 8 `mux2` |
+| Load/store unit | `lsu` | 207 |
 
 `gate_counts.json` breaks every module down by gate type.
 
@@ -164,10 +165,10 @@ mapped to a C line, and Spike retires 57 instructions.
 **Whole-core simulation (M2):** the program runs on the synthesized gate
 netlist (Yosys `sim`) and, independently, on the SystemVerilog source (Icarus
 Verilog). `trace.json` is written only if, for all 57 cycles of `sum.c`:
-gate level and RTL agree on every signal they share (459, including every
+gate level and RTL agree on every signal they share (1,137, including every
 module port); no net is x or z; every instruction's PC, encoding and
 register write match Spike; x0 reads 0; and the core halts in the same cycle
-as Spike. The trace holds all 1,876 nets (6,059 bits), about 1 MB.
+as Spike. The trace holds all 1,490 nets (9,448 bits), about 1.2 MB.
 
 **Views (M3):** the backend builds every view (`/api/cycle/{n}`,
 `/api/view/{path}?cycle=n`) from the netlist and the verified trace, including
@@ -178,12 +179,37 @@ C line, the instruction and the ALU light up together), else the first cycle
 on a C line, else cycle 0. Tests check that every wire of every view carries the
 trace's value and that every input of every block is drawn connected; the
 smoke check loads the real page in headless Chromium and reads a drawn wire.
-Shown as blocks only until M4: the ALU shifter and result mux, the load/store
-unit, the PC adders, and the ALU's 82 gates of glue logic.
 
-**Planted defects (`make regression`, about 30 s):** each defect in the
+**Drill-down to gates (M4):** every block opens, down to its gates. The large
+modules are built from small structural blocks, so each view stays readable
+(at most 96 gates) and looks like the textbook one:
+- the shifter is three five-stage barrel shifters of `mux2`s;
+- the ALU result mux is a tree of `mux2`s;
+- the load/store unit is `storealign`, `loadalign` and `loadextend`;
+- the ALU's own logic is split into `binvert` (the XOR row that inverts b for
+  a subtraction) and `zerodetect`, leaving 11 gates drawn one by one;
+- the PC adders are ripple-carry `adder32`s, so they open to the textbook
+  adder drawing.
+
+The register file is memory (a black box in synthesis), so it opens as a
+table: the 32 registers in the cycle, the ones the read ports select, and the
+value stored at the clock edge. `make spot-check` (part of `make verify`,
+about 6 s) asks the pipeline for every view in every cycle and checks:
+- every drawn wire against the trace;
+- every drawn gate against its logic function;
+- every full-adder wire in the adder drawings;
+- the register table against what the ports read and write;
+- every datapath unit (adders, shifters, muxes, ALU, load/store, immediates,
+  PC register) against an independent RV32I model.
+
+For `sum.c` that is 404,472 wires, 89,205 gates and 14,534 unit outputs. The
+decoders (`maindec`, `aludec`, `branchunit`) have no model; Spike's comparison
+covers them only for the instructions the program runs.
+
+**Planted defects (`make regression`, about a minute):** each defect in the
 answer key, `src/app/regression_key.py`, is planted in a copy of the
-repository, which then runs `make artifacts`, `make test` and the smoke check,
+repository, which then runs `make artifacts`, `make test`, `make spot-check`
+and the smoke check,
 as a developer would after an edit. It passes only if the stage the key names
 fails, with the message the key names. A blind spot passes only if every stage
 passes and the rebuilt artifacts differ, which shows the edit reached the
@@ -197,7 +223,9 @@ artifacts`.
 | XOR as OR in the gate netlist's full adders | `make artifacts`: "gate level and RTL differ" | The RTL is still right |
 | Every wire drawn as 0 on the page | smoke: "the drawn pc wire does not show 0x80000000" | Every backend number is still right |
 | The page opens one cycle late (backend) | `make test`: `test_the_page_opens_on_the_first_sum_line` | No hardware changes, so the artifacts are right |
-| `sra` shifts in 0s like `srl` | nothing (a known blind spot) | The wrong value is in the rebuilt trace (cycle 55's shifter), but Spike compares only pc, instruction and register writes, and gate level and RTL agree; programs that run every instruction come with M5 |
+| `sra` shifts in 0s like `srl` | spot-check: "cycle 55 rv.dp.alu.sh.y_sra (shifter) is 0x8000, should be 0xffff8000" | Spike compares only pc, instruction and register writes, and gate level and RTL agree; only the shifter's model sees it (a blind spot until M4) |
+| The register table drawn as all 0s on the page | smoke: "the register table shows other values than the API" | The backend's table is right |
+| `sltu` decoded as `slt` | nothing (a known blind spot) | `sum.c` never runs `sltu`, and the spot-check models the datapath, not the decoders; programs that run every instruction come with M5 |
 
 The tripwire almost any wrong result moves is a0 = 55, checked two
 independent ways: Spike's exit code, and the core's own halt store in the
@@ -228,7 +256,7 @@ pushed back on):
 Answers to the reviewers' questions (suzhao, PR #3):
 
 - In M5, a user's program will be compiled and simulated live on the server, and its trace shown only after it passes the same checks as `sum.c` (gate level vs RTL vs Spike).
-- `views.py` will be split when M4 adds the gate views of the large modules.
+- `views.py` will be split when M4 adds the gate views of the large modules: done in M4 (`src/app/views/`).
 
 Round 4 (session 6a, testing and trust: suzhao, PR #6; lrusso3, PR #9; every
 finding built in, none pushed back on; what changed is in
@@ -257,7 +285,7 @@ every finding that stood is fixed, finding by finding in the work log.
  verify()      trace vs. Spike golden log           │   │
                ──► backend/artifacts/*.json         │   │
  serving (API):                                     │   │
- api.py → pipeline.get_* → views.py ────────────────┼──►│ fetch /api/cycle, /api/view
+ api.py → pipeline.get_* → views/ ──────────────────┼──►│ fetch /api/cycle, /api/view
    per-cycle views built from the artifacts         │   │ lay out (elkjs) and draw
                                                     │   │ step / scrub, link panes
  ───────────────────────────────────────────────────┘   └──────────────────────────
@@ -302,7 +330,7 @@ synth ─► hardware.py ─► netlist.json
                          ▼
          simulate.py ─► trace.json   (gate-level run; the RTL run and Spike only check it)
                          ▼
-         views.py ─► pipeline.get_* ─► api.py ─► the page (draws only)
+         views/ ─► pipeline.get_* ─► api.py ─► the page (draws only)
 ```
 
 **Modules, one job each** (`src/app/`, `src/web/`):
@@ -317,11 +345,12 @@ synth ─► hardware.py ─► netlist.json
 | `simulate.py` | Run the whole core (gate level and RTL) and check it against Spike |
 | `vcd.py` | Read the simulators' waveform files |
 | `decode.py` | Split an instruction word into its fields |
-| `views.py` | Build what the page draws for one cycle (cycle view, module graphs) |
+| `views/` | Build what the page draws for one cycle: `cycle.py` (panes, start cycle), `module.py` (module graphs), `registers.py` (register table), `trace.py` |
 | `render.py` | Draw the adder in its textbook layout (SVG) |
 | `tools.py` | Start external programs (gcc, Spike, Yosys, Icarus, Chromium) |
 | `models.py` | The typed shape of every artifact and API response |
 | `errors.py`, `paths.py` | Error types; fixed locations |
+| `spotcheck.py` | `make spot-check`: every drawn bit in every cycle, every unit against a model |
 | `smoke.py`, `pagecheck.py` | Check the running app and its rendered page |
 | `regression.py`, `regression_key.py` | `make regression`: plant each defect in the answer key, check what catches it |
 | `app.js`, `graph.js` | The page: panes and stepping; layout and drawing of module views |
