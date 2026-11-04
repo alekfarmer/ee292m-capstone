@@ -89,3 +89,14 @@ tests, and smoke checks that the five bands are drawn in order.
   word load takes the bytes at the offset. Neither can happen in a legal run.
 - **Large gate views are long rather than wide.** A 32-bit `mux2` is 32 MUX
   gates in a column, in elk's order rather than bit order (as in M3).
+
+## After review: stale page code and wire colours
+
+- The browser kept running an old `graph.js` after the stage labels landed,
+  so the user saw no bands until a hard reload. The page's own files are now
+  served with `Cache-Control: no-cache`: a browser may keep them but must ask
+  before each use, and an unchanged file costs a 304. The vendored elkjs is
+  pinned at image build, so it stays cacheable. Seen failing first:
+  `test_page_files_are_revalidated_so_an_update_is_never_stale`.
+- A 0 wire was blue-grey and hard to tell from a bus. It is now a neutral
+  grey (`#c2c0b8` light, `#4b4a46` dark), with no blue in it.

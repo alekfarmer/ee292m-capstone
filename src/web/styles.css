@@ -5,7 +5,7 @@
   --panel: #ffffff;
   --line: #dcd9d1;
   --one: #d9480f;
-  --zero: #97a3b3;
+  --zero: #c2c0b8;
   --bus: #2f5f8f;
   --changed: #f2b705;
   --current: #fff1c2;
@@ -32,7 +32,7 @@
     --panel: #1f1f1d;
     --line: #3a3936;
     --one: #ff8a4c;
-    --zero: #5d6877;
+    --zero: #4b4a46;
     --bus: #7ab3ea;
     --changed: #f2c94c;
     --current: #4a3f12;
@@ -59,7 +59,7 @@
   --panel: #1f1f1d;
   --line: #3a3936;
   --one: #ff8a4c;
-  --zero: #5d6877;
+  --zero: #4b4a46;
   --bus: #7ab3ea;
   --changed: #f2c94c;
   --current: #4a3f12;

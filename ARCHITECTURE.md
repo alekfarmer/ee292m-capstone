@@ -40,6 +40,8 @@ Not built yet: user-entered C (M5, the stretch goal).
   build; `make base-digests` prints the current digests when upgrading) and FastAPI, with typed request and response models; `/docs` is the
   contract.
 - Frontend: static HTML and JavaScript, with no build step for our own code.
+  The API serves these files with `Cache-Control: no-cache`, so an update is
+  never hidden behind a stale copy.
   It uses whichever library suits the view (Plotly for plots, D3 for custom
   charts, three.js for 3D); the plan names it and says why. The page uses
   elkjs (`docker/package.json`) to place boxes and route wires for views

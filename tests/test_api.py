@@ -48,6 +48,16 @@ def test_page_is_served() -> None:
     assert "<title>C to Gates</title>" in resp.text
 
 
+def test_page_files_are_revalidated_so_an_update_is_never_stale() -> None:
+    """A browser may keep a file but must ask again before using it (a 304 if unchanged)."""
+    for path in ("/", "/app.js", "/graph.js", "/styles.css"):
+        resp = client.get(path)
+        assert resp.status_code == 200, path
+        assert resp.headers.get("cache-control") == "no-cache", path
+    etag = client.get("/graph.js").headers["etag"]
+    assert client.get("/graph.js", headers={"if-none-match": etag}).status_code == 304
+
+
 def test_cycle_and_view_endpoints() -> None:
     cv = client.get("/api/cycle/0").json()
     assert cv["pc"] == "0x80000000" and cv["cycle"] == 0
