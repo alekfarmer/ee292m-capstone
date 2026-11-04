@@ -418,12 +418,10 @@ def check_units(netlist: hardware.Netlist, cycles: list[Cycle], report: Report) 
         if module == "flopr":
             for n in range(1, len(cycles)):
                 before, now = cycles[n - 1], cycles[n]
-                want = PC_RESET if before[prefix + "reset"] else before[prefix + "d"]
+                q = PC_RESET if before[prefix + "reset"] else before[prefix + "d"]
                 report.unit_outputs += 1
-                if now[prefix + "q"] != want:
-                    report.fail(
-                        f"cycle {n} {prefix}q = {now[prefix + 'q']:#x}, should be {want:#x}"
-                    )
+                if now[prefix + "q"] != q:
+                    report.fail(f"cycle {n} {prefix}q = {now[prefix + 'q']:#x}, should be {q:#x}")
             continue
         model = MODELS.get(module)
         if model is None:
