@@ -169,8 +169,14 @@ function renderCrumbs(view) {
     return btn;
   });
   els.crumbs.replaceChildren(...items.flatMap((x, i) => (i ? [text("span", " › ", "sep"), x] : [x])));
-  const what = view.kind === "adder" ? "gate level, textbook layout" : view.kind === "gates" ? "gate level" : "blocks";
-  els.viewInfo.textContent = `${what} · ${view.gate_count} gates`;
+  const kinds = {
+    adder: "gate level, textbook layout",
+    gates: "gate level",
+    blocks: "blocks",
+    registers: "memory: 32 registers",
+  };
+  const what = kinds[view.kind] ?? view.kind;
+  els.viewInfo.textContent = view.kind === "registers" ? what : `${what} · ${view.gate_count} gates`;
 }
 
 // --- loading ----------------------------------------------------------------------

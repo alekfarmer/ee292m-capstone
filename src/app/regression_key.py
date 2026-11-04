@@ -80,6 +80,19 @@ PLANTS: tuple[Plant, ...] = (
         ),
     ),
     Plant(
+        name="registers_drawn_as_zero",
+        defect="the page's register table shows every register as 0",
+        file="src/web/graph.js",
+        old="const cells = [`x${r.index}`, r.name, r.value,",
+        new='const cells = [`x${r.index}`, r.name, "0x00000000",',
+        caught_at="smoke",
+        message="the register table shows other values than the API",
+        why=(
+            "The backend's table is right, so artifacts, tests and the spot-check "
+            "pass; only the smoke check reads the values off the rendered table."
+        ),
+    ),
+    Plant(
         name="start_one_cycle_late",
         defect="the backend opens the page one cycle after the loop closes",
         file="src/app/views/cycle.py",

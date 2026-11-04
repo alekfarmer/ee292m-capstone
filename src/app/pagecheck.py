@@ -30,6 +30,11 @@ SHOTS = {
     "adder-cycle-11": "#cycle=11&view=top.rv.dp.alu.add",
     "maindec-cycle-11": "#cycle=11&view=top.rv.c.md",
     "pcmux-cycle-11": "#cycle=11&view=top.rv.dp.pcmux",
+    "shifter-cycle-55": "#cycle=55&view=top.rv.dp.alu.sh.asr",
+    "shift-stage-cycle-55": "#cycle=55&view=top.rv.dp.alu.sh.asr.by16",
+    "resultmux-cycle-11": "#cycle=11&view=top.rv.dp.alu.rm",
+    "lsu-cycle-11": "#cycle=11&view=top.rv.dp.lsu",
+    "registers-cycle-11": "#cycle=11&view=top.rv.dp.rf",
 }
 
 
@@ -69,6 +74,48 @@ def check_rendered_page(base: str = BASE) -> list[str]:
         problems.append("the first instruction is not the one highlighted in cycle 0")
     if _text_of(dom, "start-reason"):
         problems.append("a page opened from a link still says why it opened where it did")
+    problems.extend(_error_shown(dom))
+    return problems
+
+
+def check_register_table(
+    cycle: int, values: dict[int, str], written: int | None, base: str = BASE
+) -> list[str]:
+    """Problems with the drawn register table in ``cycle`` (empty list if right).
+
+    ``values`` maps register number to the value the API gives; ``written`` is
+    the register the API says is stored into at the end of the cycle.
+    """
+    dom = dump_dom(f"#cycle={cycle}&view=top.rv.dp.rf", base)
+    rows = re.findall(r"(<tr\b[^>]*data-register=[^>]*>)(.*?)</tr>", dom, re.S)
+    # Read what a viewer reads: the value column's text (register, name, value, ...).
+    drawn = {
+        int(_attr(tag, "data-register") or "-1"): (
+            re.findall(r"<td[^>]*>([^<]*)</td>", body) + [""] * 3
+        )[2]
+        for tag, body in rows
+    }
+    problems = []
+    if drawn != values:
+        wrong = sorted(n for n in set(drawn) | set(values) if drawn.get(n) != values.get(n))
+        problems.append(f"the register table shows other values than the API for x{wrong[:4]}")
+    lit = [
+        int(_attr(tag, "data-register") or "-1")
+        for tag, _ in rows
+        if "written" in (_attr(tag, "class") or "").split()
+    ]
+    if lit != ([written] if written is not None else []):
+        problems.append(f"the register table marks {lit} as written, the API says {written}")
+    problems.extend(_error_shown(dom))
+    return problems
+
+
+def check_gate_view(fragment: str, base: str = BASE) -> list[str]:
+    """Problems with a gate-level view: it must draw gates, and no error."""
+    dom = dump_dom(fragment, base)
+    problems = []
+    if not re.search(r'class="node gate', dom):
+        problems.append(f"the page at {fragment} draws no gates")
     problems.extend(_error_shown(dom))
     return problems
 

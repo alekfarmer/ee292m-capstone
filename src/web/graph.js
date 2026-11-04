@@ -181,8 +181,46 @@ function edgeClass(e) {
   return cls.join(" ");
 }
 
+/** The register file as a table: every value and mark comes from the view. */
+function drawRegisters(container, view) {
+  const table = document.createElement("table");
+  table.className = "registers";
+  table.setAttribute("aria-label", `register file, cycle ${view.cycle}`);
+  const head = document.createElement("tr");
+  for (const h of ["register", "name", "value", "read by", "stored at the clock edge"]) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    head.append(th);
+  }
+  table.append(head);
+  for (const r of view.registers) {
+    const tr = document.createElement("tr");
+    tr.dataset.register = String(r.index);
+    if (r.read_by.length) tr.classList.add("read");
+    if (r.written !== null) tr.classList.add("written");
+    const cells = [`x${r.index}`, r.name, r.value, r.read_by.join(", "), r.written ?? ""];
+    for (const value of cells) {
+      const td = document.createElement("td");
+      td.textContent = value;
+      tr.append(td);
+    }
+    table.append(tr);
+  }
+  const note = document.createElement("p");
+  note.className = "registers-note";
+  note.textContent =
+    "The register file is memory, so it is shown as a table, not as gates. " +
+    "Values are the registers' contents during this cycle.";
+  container.replaceChildren(note, table);
+  container.dataset.path = view.path;
+}
+
 /** Draw `view` into `container`. `onOpen(path)` is called when a block is opened. */
 export async function drawModule(container, view, onOpen) {
+  if (view.kind === "registers") {
+    drawRegisters(container, view);
+    return;
+  }
   if (view.kind === "adder") {
     const doc = new DOMParser().parseFromString(view.svg, "image/svg+xml");
     const opening = container.dataset.path !== view.path;
