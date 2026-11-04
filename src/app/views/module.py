@@ -78,6 +78,22 @@ def resolve(netlist: hardware.Netlist, path: str) -> list[tuple[str, str]]:
     return chain
 
 
+def view_paths(netlist: hardware.Netlist) -> list[str]:
+    """Every instance path that opens to a view (see :func:`drill_kind`), from the root down."""
+    modules = netlist["modules"]
+    found: list[str] = []
+
+    def walk(module: str, path: str) -> None:
+        found.append(path)
+        for name, cell in modules[module].get("cells", {}).items():
+            ctype = cell["type"]
+            if ctype in modules and drill_kind(netlist, ctype) is not None:
+                walk(ctype, f"{path}.{name.lstrip(chr(92))}")
+
+    walk(ROOT, ROOT)
+    return found
+
+
 def drill_kind(netlist: hardware.Netlist, module: str) -> str | None:
     """What opening a block of type ``module`` shows, or None if it cannot be opened.
 

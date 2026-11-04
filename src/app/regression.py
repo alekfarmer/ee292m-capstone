@@ -111,6 +111,10 @@ def run_stage(stage: Stage, root: Path) -> tuple[bool, str]:
         argv = ["pytest", "-q", "--ignore=tests/test_regression_key.py"]
         proc = run_tool(argv, cwd=root, env=env, timeout=1800, check=False)
         return proc.returncode == 0, proc.stdout + proc.stderr
+    if stage == "spotcheck":
+        argv = ["python", "-m", "app.spotcheck"]
+        proc = run_tool(argv, cwd=root, env=env, timeout=1800, check=False)
+        return proc.returncode == 0, proc.stdout + proc.stderr
     server = ["uvicorn", "app.api:app", "--host", "127.0.0.1", "--port", str(PORT)]
     log = root / "server.log"
     try:

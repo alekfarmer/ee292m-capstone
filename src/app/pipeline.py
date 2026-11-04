@@ -18,6 +18,7 @@ the drawings of already-computed values.
 import json
 import platform
 import re
+from functools import lru_cache
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
@@ -391,9 +392,25 @@ def get_module_view(
     Raises:
         KeyError: no such program or instance path, or ``cycle`` is outside the trace.
     """
-    netlist = hardware.load_netlist(_artifact(NETLIST_FILE, art_dir))
+    netlist = _netlist(art_dir)
     index = views.trace_index(_artifact(TRACE_FILE, program_dir(art_dir, program)))
     return views.module_view(netlist, path, cycle, index, get_gate_counts(art_dir))
+
+
+def list_view_paths(art_dir: Path = ARTIFACTS_DIR) -> list[str]:
+    """Every instance path that opens to a view, from ``top`` down."""
+    return views.view_paths(_netlist(art_dir))
+
+
+@lru_cache(maxsize=4)
+def _cached_netlist(path: str, mtime_ns: int) -> hardware.Netlist:
+    return hardware.load_netlist(Path(path))
+
+
+def _netlist(art_dir: Path) -> hardware.Netlist:
+    """The netlist, parsed once until the file changes. Callers must not modify it."""
+    path = _artifact(NETLIST_FILE, art_dir)
+    return _cached_netlist(str(path), path.stat().st_mtime_ns)
 
 
 def _artifact(name: str, art_dir: Path) -> Path:

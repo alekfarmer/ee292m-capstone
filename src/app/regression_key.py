@@ -2,10 +2,10 @@
 
 Each plant is one small text edit to a copy of the repository. ``make
 regression`` applies it and runs the copy through the same stages a developer
-would after an edit (``make artifacts``, then ``make test``, then the smoke
-check against a server started from the copy). The plant behaves as the key
-says when the first stage to fail is ``caught_at`` and its output contains
-``message``.
+would after an edit (``make artifacts``, then ``make test``, then ``make
+spot-check``, then the smoke check against a server started from the copy).
+The plant behaves as the key says when the first stage to fail is
+``caught_at`` and its output contains ``message``.
 
 A plant with ``caught_at=None`` is a known blind spot: every stage must pass,
 and the regenerated artifacts must differ from the committed ones, which
@@ -20,8 +20,8 @@ catches a defect once the artifacts are rebuilt from it.
 from dataclasses import dataclass
 from typing import Literal
 
-Stage = Literal["artifacts", "tests", "smoke"]
-STAGES: tuple[Stage, ...] = ("artifacts", "tests", "smoke")
+Stage = Literal["artifacts", "tests", "spotcheck", "smoke"]
+STAGES: tuple[Stage, ...] = ("artifacts", "tests", "spotcheck", "smoke")
 
 
 @dataclass(frozen=True)
@@ -98,15 +98,29 @@ PLANTS: tuple[Plant, ...] = (
         file="backend/rtl/shifter.sv",
         old="shiftright asr (.a(a), .shamt(shamt), .fill(a[31]), .y(y_sra));",
         new="shiftright asr (.a(a), .shamt(shamt), .fill(1'b0), .y(y_sra));",
+        caught_at="spotcheck",
+        message="cycle 55 rv.dp.alu.sh.y_sra (shifter) is 0x8000, should be 0xffff8000",
+        why=(
+            "sum.c never runs an sra instruction, so Spike, which compares only pc, "
+            "instruction and register writes, sees nothing, and gate level and RTL agree "
+            "on the wrong design. But the shifter computes y_sra every cycle, and the "
+            "spot-check's model of the shifter says 0x80000020 >> 16 is 0xffff8000. "
+            "(A blind spot until M4.)"
+        ),
+    ),
+    Plant(
+        name="sltu_decoded_as_slt",
+        defect="the ALU decoder sends sltu to the ALU as slt (signed instead of unsigned)",
+        file="backend/rtl/aludec.sv",
+        old="3'b011:  alucontrol = 4'b0110;",
+        new="3'b011:  alucontrol = 4'b0101;",
         caught_at=None,
         message="",
         why=(
-            "A known blind spot. sum.c never runs an sra instruction, but the shifter "
-            "computes y_sra every cycle, so the rebuilt trace does change (cycle 55: "
-            "0x80000020 >> 16 gives 0x00008000, not 0xffff8000). Nothing notices: "
-            "Spike compares only pc, instruction and register writes, and gate level "
-            "and RTL agree on the wrong design. Programs that run every instruction "
-            "come with M5."
+            "A known blind spot. sum.c never runs sltu or sltiu, so Spike sees nothing, "
+            "and gate level and RTL agree on the wrong design. The spot-check models "
+            "the datapath units, not the decoders: the ALU does exactly what the wrong "
+            "alucontrol asks. Programs that run every instruction come with M5."
         ),
     ),
 )

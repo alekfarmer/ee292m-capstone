@@ -28,6 +28,7 @@ from app.views.module import (
     drill_kind,
     module_view,
     resolve,
+    view_paths,
 )
 from app.views.trace import TraceIndex, expand_trace, trace_index
 
@@ -51,4 +52,5 @@ __all__ = [
     "resolve",
     "start_cycle",
     "trace_index",
+    "view_paths",
 ]
