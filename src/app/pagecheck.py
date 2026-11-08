@@ -25,6 +25,7 @@ _FLAGS = [
 
 SHOTS = {
     "first-screen": "",
+    "tour-first-screen": "#program=tour",
     "datapath-cycle-0": "#cycle=0&view=top.rv.dp",
     "datapath-cycle-11": "#cycle=11&view=top.rv.dp",
     "alu-cycle-11": "#cycle=11&view=top.rv.dp.alu",

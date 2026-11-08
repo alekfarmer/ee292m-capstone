@@ -32,9 +32,9 @@ The goal is that a viewer can click the `+` in `sum += i`, follow it to the
 `add` instruction, then to the ALU, then to the full adder computing bit 3,
 and see the actual 0s and 1s at that cycle.
 
-> Status: **M0–M4 done** (gate-level adder spike, software pipeline,
+> Status: **M0–M5 done** (gate-level adder spike, software pipeline,
 > whole-core simulation, linked steppable views, every block down to its
-> gates). M5 (user-entered C) is the stretch goal. See `PROMPT.md` for the brief.
+> gates, and your own C typed on the page). See `PROMPT.md` for the brief.
 
 ## Quick start
 
@@ -62,8 +62,19 @@ files, but not necessarily identical bytes: the base images are pinned by
 digest, but some Debian packages are taken at their current version when the
 image is built.
 
-The page follows `sum.c` cycle by cycle:
+The page follows a C program cycle by cycle (`sum.c` unless you pick another):
 
+- **Program**: pick an example (`sum.c`, which adds 1 to 10, or `tour.c`,
+  which runs every RV32I instruction), or press **✎ edit**, type your own C
+  and press **build and run**. It is compiled, run in Spike and on the gate
+  netlist and the RTL, and shown only if all three agree, as for `sum.c`
+  (about a second). The rules are under the editor: up to 2000 bytes and 60
+  lines, no `*` `/` `%` (RV32I has no multiply or divide), no floating point,
+  no `#` (no preprocessor, no C library), and it must halt within 500
+  instructions; `main`'s return value ends up in a0. A program outside them
+  gets one plain message and the old program stays on screen. Your program
+  stays reachable through the page's URL while the server keeps it (the 32
+  most recently used).
 - **C source** and **assembly**, linked: the running line and instruction are
   highlighted; click a C line to highlight its instructions, or the reverse.
 - **Machine code**: the current instruction's fields (opcode, rd, rs1, ...)
@@ -76,7 +87,7 @@ The page follows `sum.c` cycle by cycle:
   decoder into their gates. Hover any wire for its name and value.
 - **Stepping**: by cycle or by C line, a slider, play (1–5 cycles a second),
   and keys (← → cycle, ↑ ↓ C line, Home/End, space = play). The URL keeps the
-  cycle and view, e.g. `#cycle=11&view=top.rv.dp.alu`.
+  program, cycle and view, e.g. `#program=sum&cycle=11&view=top.rv.dp.alu`.
 
 `make screenshot` saves pictures of a few views to `backend/build/screenshots/`.
 
@@ -203,7 +214,8 @@ stage; the page only places the columns (elk partitioning) and draws the bands.
 The register file is memory (a black box in synthesis), so it opens as a
 table: the 32 registers in the cycle, the ones the read ports select, and the
 value stored at the clock edge. `make spot-check` (part of `make verify`,
-about 6 s) asks the pipeline for every view in every cycle and checks:
+about 18 s) asks the pipeline for every view of every committed program in
+every cycle and checks:
 - every drawn wire against the trace;
 - every drawn gate against its logic function;
 - every full-adder wire in the adder drawings;
@@ -211,9 +223,20 @@ about 6 s) asks the pipeline for every view in every cycle and checks:
 - every datapath unit (adders, shifters, muxes, ALU, load/store, immediates,
   PC register) against an independent RV32I model.
 
-For `sum.c` that is 404,472 wires, 89,205 gates and 14,534 unit outputs. The
-decoders (`maindec`, `aludec`, `branchunit`) have no model; Spike's comparison
-covers them only for the instructions the program runs.
+For `sum.c` that is 404,472 wires, 89,205 gates and 14,534 unit outputs, and
+for `tour.c` 915,384, 201,885 and 32,894. The decoders (`maindec`, `aludec`,
+`branchunit`) have no model; Spike's comparison covers them only for the
+instructions the programs run, on the operands they run them with.
+`tour.c` (M5) runs all 37 RV32I instructions the core has
+(`tests/test_coverage.py` fails if the examples stop covering one), with
+operands where the signed and unsigned answers differ for `sltu`, `sltiu`
+and `sra`; that closed the `sltu`-as-`slt` blind spot. Running every
+instruction is still not testing every case: `bgeu` decided as `bge` stays a
+blind spot, because `tour.c`'s one `bgeu` compares two positive numbers.
+
+A program typed on the page passes the same build checks (gate level vs RTL
+vs Spike, every cycle) before it is shown, but not the spot-check, which runs
+over the committed programs in `make verify`.
 
 **Planted defects (`make regression`, about a minute):** each defect in the
 answer key, `src/app/regression_key.py`, is planted in a copy of the
@@ -232,19 +255,30 @@ artifacts`.
 | XOR as OR in the gate netlist's full adders | `make artifacts`: "gate level and RTL differ" | The RTL is still right |
 | Every wire drawn as 0 on the page | smoke: "the drawn pc wire does not show 0x80000000" | Every backend number is still right |
 | The page opens one cycle late (backend) | `make test`: `test_the_page_opens_on_the_first_sum_line` | No hardware changes, so the artifacts are right |
-| `sra` shifts in 0s like `srl` | spot-check: "cycle 55 rv.dp.alu.sh.y_sra (shifter) is 0x8000, should be 0xffff8000" | Spike compares only pc, instruction and register writes, and gate level and RTL agree; only the shifter's model sees it (a blind spot until M4) |
+| `sra` shifts in 0s like `srl` | `make artifacts`: "Spike writes x12=0xfffffffc, hardware we=1 x12=0x7ffffffc" | `tour.c` runs `sra` on -8 (before M5 only the spot-check's shifter model saw it; before M4, nothing did) |
 | The register table drawn as all 0s on the page | smoke: "the register table shows other values than the API" | The backend's table is right |
 | The load/store unit left out of the stage table | `make test`: "datapath nodes without a stage: lsu" | No hardware changes, so the artifacts are right |
-| `sltu` decoded as `slt` | nothing (a known blind spot) | `sum.c` never runs `sltu`, and the spot-check models the datapath, not the decoders; programs that run every instruction come with M5 |
+| `sltu` decoded as `slt` | `make artifacts`: "Spike writes x12=0x00000000, hardware we=1 x12=0x00000001" | `tour.c` runs `sltu` on 0xfffffff8 < 65534, where signed and unsigned differ (a blind spot until M5) |
+| A halfword store to bytes 2-3 enables bytes 0-1 | `make test`: "rv.dp.lsu.byteen (lsu) is 0x3, should be 0xc" | No program stores a halfword there, so nothing wrong reaches memory; the LSU model, run over every cycle of `sum.c` in `make test`, sees the wrong byte enables |
+| `sra` wrong only on small negatives and some shift amounts | spot-check: "rv.dp.alu.sh.y_sra (shifter) is" | No program runs `sra` by those amounts, and `sum.c`'s operands never have bits 31 and 30 set; the shifter's model sees it in a `tour.c` cycle that is not a shift |
+| The page ignores `#program=` | smoke: "not the program's source" | The backend builds and serves the typed program right; only the smoke check opens it on the page |
+| `bgeu` decided as `bge` | nothing (a known blind spot) | `tour.c`'s one `bgeu` compares two positive numbers, where signed and unsigned agree; the branch unit has no model |
 
 The tripwire almost any wrong result moves is a0 = 55, checked two
 independent ways: Spike's exit code, and the core's own halt store in the
 gate-level trace (`test_m2_trace.py`, and the smoke check through the API).
 
-**Rejected programs:** floats, `*` `/` `%`, `#include`, calls into libc or
+**Rejected programs:** floats, `*` `/` `%`, `#` anywhere (and its other
+spellings `%:` and `??=`), inline assembly, `_Pragma`, calls into libc or
 other undefined functions, images larger than RAM, and programs that do not
 halt within 500 instructions each give one clear error (see
-`tests/test_rejections.py`).
+`tests/test_rejections.py`). A typed program is also refused when it is
+empty, over 2000 bytes or 60 lines, or holds a control character
+(`tests/test_user_programs.py`). `#`, inline assembly and `_Pragma` are
+refused before any tool sees the source: the subset check runs gcc's
+preprocessor, which would otherwise read any file `#include` names (its error
+messages quote what it read), and `asm(".incbin ...")` would copy a file into
+the program.
 
 ## Review feedback
 
@@ -252,7 +286,7 @@ Peer reviews arrive as pull requests into `feedback/` and are merged there.
 Accepted findings are built in; each finding pushed back on gets one line
 below, with the reason.
 
-- Broader inputs (lrusso3, PR #1): deferred to M5, because every displayed bit must first be verified for one fixed program (M2–M4); the M1 pipeline already accepts any C file in the supported subset and rejects the rest with a clear error.
+- Broader inputs (lrusso3, PR #1): deferred to M5, because every displayed bit must first be verified for one fixed program (M2–M4); the M1 pipeline already accepts any C file in the supported subset and rejects the rest with a clear error. Done in M5: any program typed on the page.
 
 Round 3 (code reviews of `m3-views`; every finding accepted and built in, none
 pushed back on):
@@ -265,7 +299,7 @@ pushed back on):
 
 Answers to the reviewers' questions (suzhao, PR #3):
 
-- In M5, a user's program will be compiled and simulated live on the server, and its trace shown only after it passes the same checks as `sum.c` (gate level vs RTL vs Spike).
+- In M5, a user's program will be compiled and simulated live on the server, and its trace shown only after it passes the same checks as `sum.c` (gate level vs RTL vs Spike). Done in M5.
 - `views.py` will be split when M4 adds the gate views of the large modules: done in M4 (`src/app/views/`).
 
 Round 4 (session 6a, testing and trust: suzhao, PR #6; lrusso3, PR #9; every
@@ -332,8 +366,11 @@ The cost of this boundary is size. Per-cycle values for every net can get big,
 so the trace is stored as value *changes* (VCD-style), not full snapshots, and
 the first slice limits the program to under 500 cycles.
 
-*Future note:* supporting user-entered C (M5) adds a compile+simulate service
-on the backend. The boundary does not move: the frontend still only renders.
+**User-entered C (M5)** adds one write to the API: `POST /api/programs`
+runs the whole pipeline above (compile, Spike, gate level, RTL, every check)
+on the server and answers with a name, `u_<hash of the source>`; the page then
+asks for that program's views exactly as for `sum.c`. The boundary does not
+move: the page sends text and draws what comes back.
 
 ## How the code is organized
 
@@ -406,7 +443,7 @@ Riskiest first. Each milestone ends with a check that can be run.
 | M2 | **Hardware simulation.** Run the hex image on RTL and on the gate netlist; emit trace JSON. | Register-file writes match Spike for every retired instruction; gate-level sim equals RTL sim bit-for-bit every cycle. |
 | M3 | **Linked layer views.** C, asm, hex, and datapath panes; stepping highlights the active line and active datapath wires in all panes. | Clicking a C line highlights its asm lines (via DWARF line info) and vice versa. |
 | M4 | **Drill-down to gates.** Datapath → module (ALU, decoder, register file) → gates, with live values at the current cycle. | Every displayed bit matches the trace; spot-check script passes. |
-| M5 | *(Stretch)* **User-entered C** within a defined subset; rejected inputs give clear errors. | Test suite of accepted and rejected programs passes. |
+| M5 | *(Stretch)* **User-entered C** within a defined subset; rejected inputs give clear errors. | Test suite of accepted and rejected programs passes (`tests/test_user_programs.py`, `tests/test_rejections.py`). Done. |
 
 ## Top risks
 
