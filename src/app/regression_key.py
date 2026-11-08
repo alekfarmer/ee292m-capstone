@@ -124,14 +124,12 @@ PLANTS: tuple[Plant, ...] = (
         file="backend/rtl/shifter.sv",
         old="shiftright asr (.a(a), .shamt(shamt), .fill(a[31]), .y(y_sra));",
         new="shiftright asr (.a(a), .shamt(shamt), .fill(1'b0), .y(y_sra));",
-        caught_at="spotcheck",
-        message="cycle 55 rv.dp.alu.sh.y_sra (shifter) is 0x8000, should be 0xffff8000",
+        caught_at="artifacts",
+        message="Spike writes x12=0xfffffffc, hardware we=1 x12=0x7ffffffc",
         why=(
-            "sum.c never runs an sra instruction, so Spike, which compares only pc, "
-            "instruction and register writes, sees nothing, and gate level and RTL agree "
-            "on the wrong design. But the shifter computes y_sra every cycle, and the "
-            "spot-check's model of the shifter says 0x80000020 >> 16 is 0xffff8000. "
-            "(A blind spot until M4.)"
+            "sum.c never runs sra, but tour.c does (-8 >> 1), so Spike sees the wrong "
+            "register write while the artifacts are built. Before tour.c (M5) only the "
+            "spot-check's shifter model caught this; before M4, nothing did."
         ),
     ),
     Plant(
@@ -140,13 +138,29 @@ PLANTS: tuple[Plant, ...] = (
         file="backend/rtl/aludec.sv",
         old="3'b011:  alucontrol = 4'b0110;",
         new="3'b011:  alucontrol = 4'b0101;",
-        caught_at=None,
-        message="",
+        caught_at="artifacts",
+        message="Spike writes x12=0x00000000, hardware we=1 x12=0x00000001",
         why=(
-            "A known blind spot. sum.c never runs sltu or sltiu, so Spike sees nothing, "
-            "and gate level and RTL agree on the wrong design. The spot-check models "
-            "the datapath units, not the decoders: the ALU does exactly what the wrong "
-            "alucontrol asks. Programs that run every instruction come with M5."
+            "The decoders have no spot-check model, so this was a known blind spot "
+            "until M5: sum.c never runs sltu. tour.c runs it on 0xfffffff8 < 65534, "
+            "where unsigned (0) and signed (1) differ, so Spike catches it."
+        ),
+    ),
+    Plant(
+        name="sh_upper_half_as_lower",
+        defect="a halfword store to bytes 2-3 of a word enables bytes 0-1 instead",
+        file="backend/rtl/storealign.sv",
+        old="2'b01:   byteen = offset[1] ? 4'b1100 : 4'b0011;",
+        new="2'b01:   byteen = offset[1] ? 4'b0011 : 4'b0011;",
+        caught_at="tests",
+        message="rv.dp.lsu.byteen (lsu) is 0x3, should be 0xc",
+        why=(
+            "No committed program stores a halfword to bytes 2-3, so no wrong value "
+            "reaches memory or a register: Spike sees nothing, and gate level and RTL "
+            "agree on the wrong design. But the LSU computes byteen every cycle, and "
+            "the spot-check's model, from the RV32I specification, disagrees in a "
+            "cycle whose inputs look like a halfword at offset 3 (an lhu); make test "
+            "runs those models over every cycle of sum.c."
         ),
     ),
 )

@@ -1,0 +1,6478 @@
+{
+  "source_file": "tour.c",
+  "c_lines": [
+    {
+      "line": 1,
+      "text": "// A tour of RV32I: every instruction the core has runs at least once."
+    },
+    {
+      "line": 2,
+      "text": "// 'volatile' makes each read a real load, so the compiler cannot fold"
+    },
+    {
+      "line": 3,
+      "text": "// the answers in advance."
+    },
+    {
+      "line": 4,
+      "text": "volatile int word = -8;                  // lw, sw"
+    },
+    {
+      "line": 5,
+      "text": "volatile short half = -2;                // lh, sh"
+    },
+    {
+      "line": 6,
+      "text": "volatile unsigned short uhalf = 65534;   // lhu"
+    },
+    {
+      "line": 7,
+      "text": "volatile signed char byte = -3;          // lb, sb"
+    },
+    {
+      "line": 8,
+      "text": "volatile unsigned char ubyte = 253;      // lbu"
+    },
+    {
+      "line": 9,
+      "text": "volatile int big = 0x12345;              // lui (constants over 12 bits)"
+    },
+    {
+      "line": 10,
+      "text": "short halves[2] = {7, -2};               // lh (an indexed read, not volatile)"
+    },
+    {
+      "line": 11,
+      "text": "signed char bytes[2] = {5, -3};          // lb"
+    },
+    {
+      "line": 12,
+      "text": ""
+    },
+    {
+      "line": 13,
+      "text": "int smaller(int a, int b) {              // a call (jal) and a return (jalr)"
+    },
+    {
+      "line": 14,
+      "text": "    if (a < b)                           // blt or bge"
+    },
+    {
+      "line": 15,
+      "text": "        return a;"
+    },
+    {
+      "line": 16,
+      "text": "    return b;"
+    },
+    {
+      "line": 17,
+      "text": "}"
+    },
+    {
+      "line": 18,
+      "text": ""
+    },
+    {
+      "line": 19,
+      "text": "int main(void) {"
+    },
+    {
+      "line": 20,
+      "text": "    int s = word;"
+    },
+    {
+      "line": 21,
+      "text": "    unsigned u = (unsigned)s;"
+    },
+    {
+      "line": 22,
+      "text": "    int k = ubyte & 1;                   // 1, known only at run time"
+    },
+    {
+      "line": 23,
+      "text": "    int h = halves[k];                   // -2"
+    },
+    {
+      "line": 24,
+      "text": "    int c = bytes[k];                    // -3"
+    },
+    {
+      "line": 25,
+      "text": "    int r = 0;"
+    },
+    {
+      "line": 26,
+      "text": ""
+    },
+    {
+      "line": 27,
+      "text": "    r += s >> 1;                         // srai: -4"
+    },
+    {
+      "line": 28,
+      "text": "    r += (int)(u >> 28);                 // srli: 15"
+    },
+    {
+      "line": 29,
+      "text": "    r += s << 2;                         // slli: -32"
+    },
+    {
+      "line": 30,
+      "text": "    r += s >> (h + 3);                   // sra:  -8 >> 1 = -4"
+    },
+    {
+      "line": 31,
+      "text": "    r += (int)(u >> (c + 31));           // srl:  u >> 28 = 15"
+    },
+    {
+      "line": 32,
+      "text": "    r += 1 << (c + 5);                   // sll:  4"
+    },
+    {
+      "line": 33,
+      "text": "    r += s < h;                          // slt:  -8 < -2 is 1"
+    },
+    {
+      "line": 34,
+      "text": "    r += u < (unsigned)uhalf;            // sltu: 0xfffffff8 < 65534 is 0"
+    },
+    {
+      "line": 35,
+      "text": "    r += s < 5;                          // slti: 1"
+    },
+    {
+      "line": 36,
+      "text": "    r += u < 10u;                        // sltiu: 0"
+    },
+    {
+      "line": 37,
+      "text": "    r += (s ^ h) + (s ^ 0x55);           // xor, xori"
+    },
+    {
+      "line": 38,
+      "text": "    r += (s | ubyte) + (s | 0x70);       // or, ori"
+    },
+    {
+      "line": 39,
+      "text": "    r += (s & ubyte) + (s & 0x0f);       // and, andi"
+    },
+    {
+      "line": 40,
+      "text": "    r += big - ubyte;                    // sub"
+    },
+    {
+      "line": 41,
+      "text": ""
+    },
+    {
+      "line": 42,
+      "text": "    unsigned a = uhalf, b = ubyte;"
+    },
+    {
+      "line": 43,
+      "text": "    if (a < b)                           // bltu or bgeu"
+    },
+    {
+      "line": 44,
+      "text": "        r += 100;"
+    },
+    {
+      "line": 45,
+      "text": "    if (b >= a)"
+    },
+    {
+      "line": 46,
+      "text": "        r += 200;"
+    },
+    {
+      "line": 47,
+      "text": "    if (h == c)                          // beq or bne"
+    },
+    {
+      "line": 48,
+      "text": "        r += 300;"
+    },
+    {
+      "line": 49,
+      "text": "    if (h != c + 1)"
+    },
+    {
+      "line": 50,
+      "text": "        r += 400;"
+    },
+    {
+      "line": 51,
+      "text": "    for (int i = c; i != 0; i++)         // bne: the loop goes back while i != 0"
+    },
+    {
+      "line": 52,
+      "text": "        r += i;                          // -3, -2, -1"
+    },
+    {
+      "line": 53,
+      "text": ""
+    },
+    {
+      "line": 54,
+      "text": "    word = r;                            // sw"
+    },
+    {
+      "line": 55,
+      "text": "    half = (short)r;                     // sh"
+    },
+    {
+      "line": 56,
+      "text": "    byte = (signed char)r;               // sb"
+    },
+    {
+      "line": 57,
+      "text": "    return r + smaller(h, c) + word + half + byte;   // expected: 157845 in a0"
+    },
+    {
+      "line": 58,
+      "text": "}"
+    }
+  ],
+  "asm": [
+    {
+      "addr": "0x80000000",
+      "hex": "0x00001117",
+      "text": "auipc sp,0x1",
+      "function": "_start",
+      "c_line": null,
+      "format": "U",
+      "opcode_name": "AUIPC: add upper immediate to PC",
+      "fields": [
+        {
+          "name": "imm[31:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "00000000000000000001",
+          "meaning": "upper immediate = 0x00001"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00010",
+          "meaning": "rd = x2 (sp)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010111",
+          "meaning": "opcode = AUIPC: add upper immediate to PC"
+        }
+      ],
+      "immediate": 4096
+    },
+    {
+      "addr": "0x80000004",
+      "hex": "0x00010113",
+      "text": "addi sp,sp,0 # 80001000 <__stack_top>",
+      "function": "_start",
+      "c_line": null,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000000",
+          "meaning": "immediate = 0"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00010",
+          "meaning": "rd = x2 (sp)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x80000008",
+      "hex": "0x00000293",
+      "text": "addi t0,zero,0",
+      "function": "_start",
+      "c_line": null,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000000",
+          "meaning": "immediate = 0"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00000",
+          "meaning": "rs1 = x0 (zero)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00101",
+          "meaning": "rd = x5 (t0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x8000000c",
+      "hex": "0x00000513",
+      "text": "addi a0,zero,0",
+      "function": "_start",
+      "c_line": null,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000000",
+          "meaning": "immediate = 0"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00000",
+          "meaning": "rs1 = x0 (zero)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01010",
+          "meaning": "rd = x10 (a0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x80000010",
+      "hex": "0x00000593",
+      "text": "addi a1,zero,0",
+      "function": "_start",
+      "c_line": null,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000000",
+          "meaning": "immediate = 0"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00000",
+          "meaning": "rs1 = x0 (zero)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01011",
+          "meaning": "rd = x11 (a1)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x80000014",
+      "hex": "0x028000ef",
+      "text": "jal ra,8000003c <main>",
+      "function": "_start",
+      "c_line": null,
+      "format": "J",
+      "opcode_name": "JAL: jump and link",
+      "fields": [
+        {
+          "name": "imm[20|10:1|11|19:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "00000010100000000000",
+          "meaning": "offset = 40"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00001",
+          "meaning": "rd = x1 (ra)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1101111",
+          "meaning": "opcode = JAL: jump and link"
+        }
+      ],
+      "immediate": 40
+    },
+    {
+      "addr": "0x80000018",
+      "hex": "0x00151313",
+      "text": "slli t1,a0,0x1",
+      "function": "_start",
+      "c_line": null,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "00001",
+          "meaning": "shamt = 1"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01010",
+          "meaning": "rs1 = x10 (a0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = slli"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00110",
+          "meaning": "rd = x6 (t1)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 1
+    },
+    {
+      "addr": "0x8000001c",
+      "hex": "0x00136313",
+      "text": "ori t1,t1,1",
+      "function": "_start",
+      "c_line": null,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000001",
+          "meaning": "immediate = 1"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00110",
+          "meaning": "rs1 = x6 (t1)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "110",
+          "meaning": "funct3 = ori"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00110",
+          "meaning": "rd = x6 (t1)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 1
+    },
+    {
+      "addr": "0x80000020",
+      "hex": "0x00000297",
+      "text": "auipc t0,0x0",
+      "function": "_start",
+      "c_line": null,
+      "format": "U",
+      "opcode_name": "AUIPC: add upper immediate to PC",
+      "fields": [
+        {
+          "name": "imm[31:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "00000000000000000000",
+          "meaning": "upper immediate = 0x00000"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00101",
+          "meaning": "rd = x5 (t0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010111",
+          "meaning": "opcode = AUIPC: add upper immediate to PC"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x80000024",
+      "hex": "0x1f828293",
+      "text": "addi t0,t0,504 # 80000218 <tohost>",
+      "function": "_start",
+      "c_line": null,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000111111000",
+          "meaning": "immediate = 504"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00101",
+          "meaning": "rs1 = x5 (t0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00101",
+          "meaning": "rd = x5 (t0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 504
+    },
+    {
+      "addr": "0x80000028",
+      "hex": "0x0062a023",
+      "text": "sw t1,0(t0)",
+      "function": "_start",
+      "c_line": null,
+      "format": "S",
+      "opcode_name": "STORE",
+      "fields": [
+        {
+          "name": "imm[11:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "immediate bits [11:5] (immediate = 0)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "00110",
+          "meaning": "rs2 = x6 (t1)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00101",
+          "meaning": "rs1 = x5 (t0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = sw"
+        },
+        {
+          "name": "imm[4:0]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00000",
+          "meaning": "immediate bits [4:0]"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0100011",
+          "meaning": "opcode = STORE"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x8000002c",
+      "hex": "0x0000006f",
+      "text": "jal zero,8000002c <_start+0x2c>",
+      "function": "_start",
+      "c_line": null,
+      "format": "J",
+      "opcode_name": "JAL: jump and link",
+      "fields": [
+        {
+          "name": "imm[20|10:1|11|19:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "00000000000000000000",
+          "meaning": "offset = 0"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00000",
+          "meaning": "rd = x0 (zero)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1101111",
+          "meaning": "opcode = JAL: jump and link"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x80000030",
+      "hex": "0x00b54463",
+      "text": "blt a0,a1,80000038 <smaller+0x8>",
+      "function": "smaller",
+      "c_line": 14,
+      "format": "B",
+      "opcode_name": "BRANCH",
+      "fields": [
+        {
+          "name": "imm[12|10:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "offset bits 12, 10:5 (offset = 8)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01011",
+          "meaning": "rs2 = x11 (a1)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01010",
+          "meaning": "rs1 = x10 (a0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "100",
+          "meaning": "funct3 = blt"
+        },
+        {
+          "name": "imm[4:1|11]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "offset bits 4:1, 11"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1100011",
+          "meaning": "opcode = BRANCH"
+        }
+      ],
+      "immediate": 8
+    },
+    {
+      "addr": "0x80000034",
+      "hex": "0x00058513",
+      "text": "addi a0,a1,0",
+      "function": "smaller",
+      "c_line": 16,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000000",
+          "meaning": "immediate = 0"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01011",
+          "meaning": "rs1 = x11 (a1)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01010",
+          "meaning": "rd = x10 (a0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x80000038",
+      "hex": "0x00008067",
+      "text": "jalr zero,0(ra)",
+      "function": "smaller",
+      "c_line": 17,
+      "format": "I",
+      "opcode_name": "JALR: jump and link register",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000000",
+          "meaning": "immediate = 0"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00001",
+          "meaning": "rs1 = x1 (ra)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = jalr"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00000",
+          "meaning": "rd = x0 (zero)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1100111",
+          "meaning": "opcode = JALR: jump and link register"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x8000003c",
+      "hex": "0xfe010113",
+      "text": "addi sp,sp,-32",
+      "function": "main",
+      "c_line": 19,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "111111100000",
+          "meaning": "immediate = -32"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00010",
+          "meaning": "rd = x2 (sp)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": -32
+    },
+    {
+      "addr": "0x80000040",
+      "hex": "0x00112e23",
+      "text": "sw ra,28(sp)",
+      "function": "main",
+      "c_line": 19,
+      "format": "S",
+      "opcode_name": "STORE",
+      "fields": [
+        {
+          "name": "imm[11:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "immediate bits [11:5] (immediate = 28)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "00001",
+          "meaning": "rs2 = x1 (ra)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = sw"
+        },
+        {
+          "name": "imm[4:0]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "11100",
+          "meaning": "immediate bits [4:0]"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0100011",
+          "meaning": "opcode = STORE"
+        }
+      ],
+      "immediate": 28
+    },
+    {
+      "addr": "0x80000044",
+      "hex": "0x00812c23",
+      "text": "sw s0,24(sp)",
+      "function": "main",
+      "c_line": 19,
+      "format": "S",
+      "opcode_name": "STORE",
+      "fields": [
+        {
+          "name": "imm[11:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "immediate bits [11:5] (immediate = 24)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01000",
+          "meaning": "rs2 = x8 (s0)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = sw"
+        },
+        {
+          "name": "imm[4:0]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "11000",
+          "meaning": "immediate bits [4:0]"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0100011",
+          "meaning": "opcode = STORE"
+        }
+      ],
+      "immediate": 24
+    },
+    {
+      "addr": "0x80000048",
+      "hex": "0x00912a23",
+      "text": "sw s1,20(sp)",
+      "function": "main",
+      "c_line": 19,
+      "format": "S",
+      "opcode_name": "STORE",
+      "fields": [
+        {
+          "name": "imm[11:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "immediate bits [11:5] (immediate = 20)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01001",
+          "meaning": "rs2 = x9 (s1)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = sw"
+        },
+        {
+          "name": "imm[4:0]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "10100",
+          "meaning": "immediate bits [4:0]"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0100011",
+          "meaning": "opcode = STORE"
+        }
+      ],
+      "immediate": 20
+    },
+    {
+      "addr": "0x8000004c",
+      "hex": "0x01212823",
+      "text": "sw s2,16(sp)",
+      "function": "main",
+      "c_line": 19,
+      "format": "S",
+      "opcode_name": "STORE",
+      "fields": [
+        {
+          "name": "imm[11:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "immediate bits [11:5] (immediate = 16)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "10010",
+          "meaning": "rs2 = x18 (s2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = sw"
+        },
+        {
+          "name": "imm[4:0]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "10000",
+          "meaning": "immediate bits [4:0]"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0100011",
+          "meaning": "opcode = STORE"
+        }
+      ],
+      "immediate": 16
+    },
+    {
+      "addr": "0x80000050",
+      "hex": "0x01312623",
+      "text": "sw s3,12(sp)",
+      "function": "main",
+      "c_line": 19,
+      "format": "S",
+      "opcode_name": "STORE",
+      "fields": [
+        {
+          "name": "imm[11:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "immediate bits [11:5] (immediate = 12)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "10011",
+          "meaning": "rs2 = x19 (s3)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = sw"
+        },
+        {
+          "name": "imm[4:0]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "immediate bits [4:0]"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0100011",
+          "meaning": "opcode = STORE"
+        }
+      ],
+      "immediate": 12
+    },
+    {
+      "addr": "0x80000054",
+      "hex": "0x800007b7",
+      "text": "lui a5,0x80000",
+      "function": "main",
+      "c_line": 20,
+      "format": "U",
+      "opcode_name": "LUI: load upper immediate",
+      "fields": [
+        {
+          "name": "imm[31:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "10000000000000000000",
+          "meaning": "upper immediate = 0x80000"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110111",
+          "meaning": "opcode = LUI: load upper immediate"
+        }
+      ],
+      "immediate": -2147483648
+    },
+    {
+      "addr": "0x80000058",
+      "hex": "0x2147a783",
+      "text": "lw a5,532(a5) # 80000214 <word>",
+      "function": "main",
+      "c_line": 20,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000010100",
+          "meaning": "immediate = 532"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = lw"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 532
+    },
+    {
+      "addr": "0x8000005c",
+      "hex": "0x800006b7",
+      "text": "lui a3,0x80000",
+      "function": "main",
+      "c_line": 22,
+      "format": "U",
+      "opcode_name": "LUI: load upper immediate",
+      "fields": [
+        {
+          "name": "imm[31:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "10000000000000000000",
+          "meaning": "upper immediate = 0x80000"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01101",
+          "meaning": "rd = x13 (a3)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110111",
+          "meaning": "opcode = LUI: load upper immediate"
+        }
+      ],
+      "immediate": -2147483648
+    },
+    {
+      "addr": "0x80000060",
+      "hex": "0x20c6c703",
+      "text": "lbu a4,524(a3) # 8000020c <ubyte>",
+      "function": "main",
+      "c_line": 22,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000001100",
+          "meaning": "immediate = 524"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01101",
+          "meaning": "rs1 = x13 (a3)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "100",
+          "meaning": "funct3 = lbu"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 524
+    },
+    {
+      "addr": "0x80000064",
+      "hex": "0x00177713",
+      "text": "andi a4,a4,1",
+      "function": "main",
+      "c_line": 22,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000001",
+          "meaning": "immediate = 1"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "111",
+          "meaning": "funct3 = andi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 1
+    },
+    {
+      "addr": "0x80000068",
+      "hex": "0x00171613",
+      "text": "slli a2,a4,0x1",
+      "function": "main",
+      "c_line": 23,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "00001",
+          "meaning": "shamt = 1"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = slli"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 1
+    },
+    {
+      "addr": "0x8000006c",
+      "hex": "0x800005b7",
+      "text": "lui a1,0x80000",
+      "function": "main",
+      "c_line": 23,
+      "format": "U",
+      "opcode_name": "LUI: load upper immediate",
+      "fields": [
+        {
+          "name": "imm[31:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "10000000000000000000",
+          "meaning": "upper immediate = 0x80000"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01011",
+          "meaning": "rd = x11 (a1)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110111",
+          "meaning": "opcode = LUI: load upper immediate"
+        }
+      ],
+      "immediate": -2147483648
+    },
+    {
+      "addr": "0x80000070",
+      "hex": "0x20458593",
+      "text": "addi a1,a1,516 # 80000204 <halves>",
+      "function": "main",
+      "c_line": 23,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000000100",
+          "meaning": "immediate = 516"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01011",
+          "meaning": "rs1 = x11 (a1)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01011",
+          "meaning": "rd = x11 (a1)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 516
+    },
+    {
+      "addr": "0x80000074",
+      "hex": "0x00b60633",
+      "text": "add a2,a2,a1",
+      "function": "main",
+      "c_line": 23,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01011",
+          "meaning": "rs2 = x11 (a1)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01100",
+          "meaning": "rs1 = x12 (a2)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x80000078",
+      "hex": "0x00061503",
+      "text": "lh a0,0(a2)",
+      "function": "main",
+      "c_line": 23,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000000",
+          "meaning": "immediate = 0"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01100",
+          "meaning": "rs1 = x12 (a2)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = lh"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01010",
+          "meaning": "rd = x10 (a0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x8000007c",
+      "hex": "0x80000637",
+      "text": "lui a2,0x80000",
+      "function": "main",
+      "c_line": 24,
+      "format": "U",
+      "opcode_name": "LUI: load upper immediate",
+      "fields": [
+        {
+          "name": "imm[31:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "10000000000000000000",
+          "meaning": "upper immediate = 0x80000"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110111",
+          "meaning": "opcode = LUI: load upper immediate"
+        }
+      ],
+      "immediate": -2147483648
+    },
+    {
+      "addr": "0x80000080",
+      "hex": "0x20060613",
+      "text": "addi a2,a2,512 # 80000200 <bytes>",
+      "function": "main",
+      "c_line": 24,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000000000",
+          "meaning": "immediate = 512"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01100",
+          "meaning": "rs1 = x12 (a2)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 512
+    },
+    {
+      "addr": "0x80000084",
+      "hex": "0x00c70733",
+      "text": "add a4,a4,a2",
+      "function": "main",
+      "c_line": 24,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x80000088",
+      "hex": "0x00070583",
+      "text": "lb a1,0(a4)",
+      "function": "main",
+      "c_line": 24,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000000",
+          "meaning": "immediate = 0"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = lb"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01011",
+          "meaning": "rd = x11 (a1)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x8000008c",
+      "hex": "0x4017d613",
+      "text": "srai a2,a5,0x1",
+      "function": "main",
+      "c_line": 27,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0100000",
+          "meaning": "funct7 = srai"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "00001",
+          "meaning": "shamt = 1"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = srli/srai"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 1
+    },
+    {
+      "addr": "0x80000090",
+      "hex": "0x01c7d713",
+      "text": "srli a4,a5,0x1c",
+      "function": "main",
+      "c_line": 28,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "11100",
+          "meaning": "shamt = 28"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = srli/srai"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 28
+    },
+    {
+      "addr": "0x80000094",
+      "hex": "0x00e60633",
+      "text": "add a2,a2,a4",
+      "function": "main",
+      "c_line": 28,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01100",
+          "meaning": "rs1 = x12 (a2)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x80000098",
+      "hex": "0x00279713",
+      "text": "slli a4,a5,0x2",
+      "function": "main",
+      "c_line": 29,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "00010",
+          "meaning": "shamt = 2"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = slli"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 2
+    },
+    {
+      "addr": "0x8000009c",
+      "hex": "0x00c70733",
+      "text": "add a4,a4,a2",
+      "function": "main",
+      "c_line": 29,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000a0",
+      "hex": "0x00350613",
+      "text": "addi a2,a0,3",
+      "function": "main",
+      "c_line": 30,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000011",
+          "meaning": "immediate = 3"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01010",
+          "meaning": "rs1 = x10 (a0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 3
+    },
+    {
+      "addr": "0x800000a4",
+      "hex": "0x40c7d633",
+      "text": "sra a2,a5,a2",
+      "function": "main",
+      "c_line": 30,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0100000",
+          "meaning": "funct7 = sub/sra"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = srl/sra"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000a8",
+      "hex": "0x00e60633",
+      "text": "add a2,a2,a4",
+      "function": "main",
+      "c_line": 30,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01100",
+          "meaning": "rs1 = x12 (a2)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000ac",
+      "hex": "0x01f58713",
+      "text": "addi a4,a1,31",
+      "function": "main",
+      "c_line": 31,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000011111",
+          "meaning": "immediate = 31"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01011",
+          "meaning": "rs1 = x11 (a1)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 31
+    },
+    {
+      "addr": "0x800000b0",
+      "hex": "0x00e7d733",
+      "text": "srl a4,a5,a4",
+      "function": "main",
+      "c_line": 31,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = srl/sra"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000b4",
+      "hex": "0x00c70733",
+      "text": "add a4,a4,a2",
+      "function": "main",
+      "c_line": 31,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000b8",
+      "hex": "0x00558813",
+      "text": "addi a6,a1,5",
+      "function": "main",
+      "c_line": 32,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000101",
+          "meaning": "immediate = 5"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01011",
+          "meaning": "rs1 = x11 (a1)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "10000",
+          "meaning": "rd = x16 (a6)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 5
+    },
+    {
+      "addr": "0x800000bc",
+      "hex": "0x00100613",
+      "text": "addi a2,zero,1",
+      "function": "main",
+      "c_line": 32,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000001",
+          "meaning": "immediate = 1"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00000",
+          "meaning": "rs1 = x0 (zero)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 1
+    },
+    {
+      "addr": "0x800000c0",
+      "hex": "0x01061633",
+      "text": "sll a2,a2,a6",
+      "function": "main",
+      "c_line": 32,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "10000",
+          "meaning": "rs2 = x16 (a6)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01100",
+          "meaning": "rs1 = x12 (a2)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = sll"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000c4",
+      "hex": "0x00e60633",
+      "text": "add a2,a2,a4",
+      "function": "main",
+      "c_line": 32,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01100",
+          "meaning": "rs1 = x12 (a2)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000c8",
+      "hex": "0x00a7a733",
+      "text": "slt a4,a5,a0",
+      "function": "main",
+      "c_line": 33,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01010",
+          "meaning": "rs2 = x10 (a0)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = slt"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000cc",
+      "hex": "0x00c70733",
+      "text": "add a4,a4,a2",
+      "function": "main",
+      "c_line": 33,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000d0",
+      "hex": "0x80000837",
+      "text": "lui a6,0x80000",
+      "function": "main",
+      "c_line": 34,
+      "format": "U",
+      "opcode_name": "LUI: load upper immediate",
+      "fields": [
+        {
+          "name": "imm[31:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "10000000000000000000",
+          "meaning": "upper immediate = 0x80000"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "10000",
+          "meaning": "rd = x16 (a6)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110111",
+          "meaning": "opcode = LUI: load upper immediate"
+        }
+      ],
+      "immediate": -2147483648
+    },
+    {
+      "addr": "0x800000d4",
+      "hex": "0x20e85603",
+      "text": "lhu a2,526(a6) # 8000020e <uhalf>",
+      "function": "main",
+      "c_line": 34,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000001110",
+          "meaning": "immediate = 526"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "10000",
+          "meaning": "rs1 = x16 (a6)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = lhu"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 526
+    },
+    {
+      "addr": "0x800000d8",
+      "hex": "0x00c7b633",
+      "text": "sltu a2,a5,a2",
+      "function": "main",
+      "c_line": 34,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "011",
+          "meaning": "funct3 = sltu"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000dc",
+      "hex": "0x00c70733",
+      "text": "add a4,a4,a2",
+      "function": "main",
+      "c_line": 34,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000e0",
+      "hex": "0x0057a613",
+      "text": "slti a2,a5,5",
+      "function": "main",
+      "c_line": 35,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000101",
+          "meaning": "immediate = 5"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = slti"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 5
+    },
+    {
+      "addr": "0x800000e4",
+      "hex": "0x00e60633",
+      "text": "add a2,a2,a4",
+      "function": "main",
+      "c_line": 35,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01100",
+          "meaning": "rs1 = x12 (a2)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000e8",
+      "hex": "0x00a7b713",
+      "text": "sltiu a4,a5,10",
+      "function": "main",
+      "c_line": 36,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000001010",
+          "meaning": "immediate = 10"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "011",
+          "meaning": "funct3 = sltiu"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 10
+    },
+    {
+      "addr": "0x800000ec",
+      "hex": "0x00c70733",
+      "text": "add a4,a4,a2",
+      "function": "main",
+      "c_line": 36,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000f0",
+      "hex": "0x00a7c433",
+      "text": "xor s0,a5,a0",
+      "function": "main",
+      "c_line": 37,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01010",
+          "meaning": "rs2 = x10 (a0)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "100",
+          "meaning": "funct3 = xor"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000f4",
+      "hex": "0x0557c613",
+      "text": "xori a2,a5,85",
+      "function": "main",
+      "c_line": 37,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000001010101",
+          "meaning": "immediate = 85"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "100",
+          "meaning": "funct3 = xori"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 85
+    },
+    {
+      "addr": "0x800000f8",
+      "hex": "0x00c40433",
+      "text": "add s0,s0,a2",
+      "function": "main",
+      "c_line": 37,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800000fc",
+      "hex": "0x00e40433",
+      "text": "add s0,s0,a4",
+      "function": "main",
+      "c_line": 37,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x80000100",
+      "hex": "0x20c6c703",
+      "text": "lbu a4,524(a3)",
+      "function": "main",
+      "c_line": 38,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000001100",
+          "meaning": "immediate = 524"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01101",
+          "meaning": "rs1 = x13 (a3)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "100",
+          "meaning": "funct3 = lbu"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 524
+    },
+    {
+      "addr": "0x80000104",
+      "hex": "0x00f76733",
+      "text": "or a4,a4,a5",
+      "function": "main",
+      "c_line": 38,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01111",
+          "meaning": "rs2 = x15 (a5)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "110",
+          "meaning": "funct3 = or"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x80000108",
+      "hex": "0x0707e613",
+      "text": "ori a2,a5,112",
+      "function": "main",
+      "c_line": 38,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000001110000",
+          "meaning": "immediate = 112"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "110",
+          "meaning": "funct3 = ori"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 112
+    },
+    {
+      "addr": "0x8000010c",
+      "hex": "0x00c70733",
+      "text": "add a4,a4,a2",
+      "function": "main",
+      "c_line": 38,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x80000110",
+      "hex": "0x00e40433",
+      "text": "add s0,s0,a4",
+      "function": "main",
+      "c_line": 38,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x80000114",
+      "hex": "0x20c6c703",
+      "text": "lbu a4,524(a3)",
+      "function": "main",
+      "c_line": 39,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000001100",
+          "meaning": "immediate = 524"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01101",
+          "meaning": "rs1 = x13 (a3)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "100",
+          "meaning": "funct3 = lbu"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 524
+    },
+    {
+      "addr": "0x80000118",
+      "hex": "0x00f77733",
+      "text": "and a4,a4,a5",
+      "function": "main",
+      "c_line": 39,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01111",
+          "meaning": "rs2 = x15 (a5)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "111",
+          "meaning": "funct3 = and"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x8000011c",
+      "hex": "0x00f7f793",
+      "text": "andi a5,a5,15",
+      "function": "main",
+      "c_line": 39,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000001111",
+          "meaning": "immediate = 15"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "111",
+          "meaning": "funct3 = andi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 15
+    },
+    {
+      "addr": "0x80000120",
+      "hex": "0x00f707b3",
+      "text": "add a5,a4,a5",
+      "function": "main",
+      "c_line": 39,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01111",
+          "meaning": "rs2 = x15 (a5)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x80000124",
+      "hex": "0x00f40433",
+      "text": "add s0,s0,a5",
+      "function": "main",
+      "c_line": 39,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01111",
+          "meaning": "rs2 = x15 (a5)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x80000128",
+      "hex": "0x800007b7",
+      "text": "lui a5,0x80000",
+      "function": "main",
+      "c_line": 40,
+      "format": "U",
+      "opcode_name": "LUI: load upper immediate",
+      "fields": [
+        {
+          "name": "imm[31:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "10000000000000000000",
+          "meaning": "upper immediate = 0x80000"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110111",
+          "meaning": "opcode = LUI: load upper immediate"
+        }
+      ],
+      "immediate": -2147483648
+    },
+    {
+      "addr": "0x8000012c",
+      "hex": "0x2087a783",
+      "text": "lw a5,520(a5) # 80000208 <big>",
+      "function": "main",
+      "c_line": 40,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000001000",
+          "meaning": "immediate = 520"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = lw"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 520
+    },
+    {
+      "addr": "0x80000130",
+      "hex": "0x20c6c703",
+      "text": "lbu a4,524(a3)",
+      "function": "main",
+      "c_line": 40,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000001100",
+          "meaning": "immediate = 524"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01101",
+          "meaning": "rs1 = x13 (a3)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "100",
+          "meaning": "funct3 = lbu"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 524
+    },
+    {
+      "addr": "0x80000134",
+      "hex": "0x40e787b3",
+      "text": "sub a5,a5,a4",
+      "function": "main",
+      "c_line": 40,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0100000",
+          "meaning": "funct7 = sub/sra"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x80000138",
+      "hex": "0x00f40433",
+      "text": "add s0,s0,a5",
+      "function": "main",
+      "c_line": 40,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01111",
+          "meaning": "rs2 = x15 (a5)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x8000013c",
+      "hex": "0x20e85783",
+      "text": "lhu a5,526(a6)",
+      "function": "main",
+      "c_line": 42,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000001110",
+          "meaning": "immediate = 526"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "10000",
+          "meaning": "rs1 = x16 (a6)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = lhu"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 526
+    },
+    {
+      "addr": "0x80000140",
+      "hex": "0x01079613",
+      "text": "slli a2,a5,0x10",
+      "function": "main",
+      "c_line": 42,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "10000",
+          "meaning": "shamt = 16"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = slli"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 16
+    },
+    {
+      "addr": "0x80000144",
+      "hex": "0x01065613",
+      "text": "srli a2,a2,0x10",
+      "function": "main",
+      "c_line": 42,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "10000",
+          "meaning": "shamt = 16"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01100",
+          "meaning": "rs1 = x12 (a2)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = srli/srai"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 16
+    },
+    {
+      "addr": "0x80000148",
+      "hex": "0x20c6c703",
+      "text": "lbu a4,524(a3)",
+      "function": "main",
+      "c_line": 42,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000001100",
+          "meaning": "immediate = 524"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01101",
+          "meaning": "rs1 = x13 (a3)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "100",
+          "meaning": "funct3 = lbu"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 524
+    },
+    {
+      "addr": "0x8000014c",
+      "hex": "0x0ff77693",
+      "text": "andi a3,a4,255",
+      "function": "main",
+      "c_line": 42,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000011111111",
+          "meaning": "immediate = 255"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "111",
+          "meaning": "funct3 = andi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01101",
+          "meaning": "rd = x13 (a3)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 255
+    },
+    {
+      "addr": "0x80000150",
+      "hex": "0x00e7f463",
+      "text": "bgeu a5,a4,80000158 <main+0x11c>",
+      "function": "main",
+      "c_line": 43,
+      "format": "B",
+      "opcode_name": "BRANCH",
+      "fields": [
+        {
+          "name": "imm[12|10:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "offset bits 12, 10:5 (offset = 8)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "111",
+          "meaning": "funct3 = bgeu"
+        },
+        {
+          "name": "imm[4:1|11]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "offset bits 4:1, 11"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1100011",
+          "meaning": "opcode = BRANCH"
+        }
+      ],
+      "immediate": 8
+    },
+    {
+      "addr": "0x80000154",
+      "hex": "0x06440413",
+      "text": "addi s0,s0,100",
+      "function": "main",
+      "c_line": 44,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000001100100",
+          "meaning": "immediate = 100"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 100
+    },
+    {
+      "addr": "0x80000158",
+      "hex": "0x00c6e463",
+      "text": "bltu a3,a2,80000160 <main+0x124>",
+      "function": "main",
+      "c_line": 45,
+      "format": "B",
+      "opcode_name": "BRANCH",
+      "fields": [
+        {
+          "name": "imm[12|10:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "offset bits 12, 10:5 (offset = 8)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01101",
+          "meaning": "rs1 = x13 (a3)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "110",
+          "meaning": "funct3 = bltu"
+        },
+        {
+          "name": "imm[4:1|11]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "offset bits 4:1, 11"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1100011",
+          "meaning": "opcode = BRANCH"
+        }
+      ],
+      "immediate": 8
+    },
+    {
+      "addr": "0x8000015c",
+      "hex": "0x0c840413",
+      "text": "addi s0,s0,200",
+      "function": "main",
+      "c_line": 46,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000011001000",
+          "meaning": "immediate = 200"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 200
+    },
+    {
+      "addr": "0x80000160",
+      "hex": "0x00b50c63",
+      "text": "beq a0,a1,80000178 <main+0x13c>",
+      "function": "main",
+      "c_line": 47,
+      "format": "B",
+      "opcode_name": "BRANCH",
+      "fields": [
+        {
+          "name": "imm[12|10:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "offset bits 12, 10:5 (offset = 24)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01011",
+          "meaning": "rs2 = x11 (a1)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01010",
+          "meaning": "rs1 = x10 (a0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = beq"
+        },
+        {
+          "name": "imm[4:1|11]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "11000",
+          "meaning": "offset bits 4:1, 11"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1100011",
+          "meaning": "opcode = BRANCH"
+        }
+      ],
+      "immediate": 24
+    },
+    {
+      "addr": "0x80000164",
+      "hex": "0x00158793",
+      "text": "addi a5,a1,1",
+      "function": "main",
+      "c_line": 49,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000001",
+          "meaning": "immediate = 1"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01011",
+          "meaning": "rs1 = x11 (a1)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 1
+    },
+    {
+      "addr": "0x80000168",
+      "hex": "0x00a78463",
+      "text": "beq a5,a0,80000170 <main+0x134>",
+      "function": "main",
+      "c_line": 49,
+      "format": "B",
+      "opcode_name": "BRANCH",
+      "fields": [
+        {
+          "name": "imm[12|10:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "offset bits 12, 10:5 (offset = 8)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01010",
+          "meaning": "rs2 = x10 (a0)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = beq"
+        },
+        {
+          "name": "imm[4:1|11]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "offset bits 4:1, 11"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1100011",
+          "meaning": "opcode = BRANCH"
+        }
+      ],
+      "immediate": 8
+    },
+    {
+      "addr": "0x8000016c",
+      "hex": "0x19040413",
+      "text": "addi s0,s0,400",
+      "function": "main",
+      "c_line": 50,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000110010000",
+          "meaning": "immediate = 400"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 400
+    },
+    {
+      "addr": "0x80000170",
+      "hex": "0x00058793",
+      "text": "addi a5,a1,0",
+      "function": "main",
+      "c_line": 19,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000000",
+          "meaning": "immediate = 0"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01011",
+          "meaning": "rs1 = x11 (a1)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 0
+    },
+    {
+      "addr": "0x80000174",
+      "hex": "0x0140006f",
+      "text": "jal zero,80000188 <main+0x14c>",
+      "function": "main",
+      "c_line": 19,
+      "format": "J",
+      "opcode_name": "JAL: jump and link",
+      "fields": [
+        {
+          "name": "imm[20|10:1|11|19:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "00000001010000000000",
+          "meaning": "offset = 20"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00000",
+          "meaning": "rd = x0 (zero)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1101111",
+          "meaning": "opcode = JAL: jump and link"
+        }
+      ],
+      "immediate": 20
+    },
+    {
+      "addr": "0x80000178",
+      "hex": "0x12c40413",
+      "text": "addi s0,s0,300",
+      "function": "main",
+      "c_line": 48,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000100101100",
+          "meaning": "immediate = 300"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 300
+    },
+    {
+      "addr": "0x8000017c",
+      "hex": "0xfe9ff06f",
+      "text": "jal zero,80000164 <main+0x128>",
+      "function": "main",
+      "c_line": 48,
+      "format": "J",
+      "opcode_name": "JAL: jump and link",
+      "fields": [
+        {
+          "name": "imm[20|10:1|11|19:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "11111110100111111111",
+          "meaning": "offset = -24"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00000",
+          "meaning": "rd = x0 (zero)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1101111",
+          "meaning": "opcode = JAL: jump and link"
+        }
+      ],
+      "immediate": -24
+    },
+    {
+      "addr": "0x80000180",
+      "hex": "0x00f40433",
+      "text": "add s0,s0,a5",
+      "function": "main",
+      "c_line": 52,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01111",
+          "meaning": "rs2 = x15 (a5)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x80000184",
+      "hex": "0x00178793",
+      "text": "addi a5,a5,1",
+      "function": "main",
+      "c_line": 51,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000001",
+          "meaning": "immediate = 1"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 1
+    },
+    {
+      "addr": "0x80000188",
+      "hex": "0xfe079ce3",
+      "text": "bne a5,zero,80000180 <main+0x144>",
+      "function": "main",
+      "c_line": 51,
+      "format": "B",
+      "opcode_name": "BRANCH",
+      "fields": [
+        {
+          "name": "imm[12|10:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "1111111",
+          "meaning": "offset bits 12, 10:5 (offset = -8)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "00000",
+          "meaning": "rs2 = x0 (zero)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = bne"
+        },
+        {
+          "name": "imm[4:1|11]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "11001",
+          "meaning": "offset bits 4:1, 11"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1100011",
+          "meaning": "opcode = BRANCH"
+        }
+      ],
+      "immediate": -8
+    },
+    {
+      "addr": "0x8000018c",
+      "hex": "0x800009b7",
+      "text": "lui s3,0x80000",
+      "function": "main",
+      "c_line": 54,
+      "format": "U",
+      "opcode_name": "LUI: load upper immediate",
+      "fields": [
+        {
+          "name": "imm[31:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "10000000000000000000",
+          "meaning": "upper immediate = 0x80000"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "10011",
+          "meaning": "rd = x19 (s3)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110111",
+          "meaning": "opcode = LUI: load upper immediate"
+        }
+      ],
+      "immediate": -2147483648
+    },
+    {
+      "addr": "0x80000190",
+      "hex": "0x2089aa23",
+      "text": "sw s0,532(s3) # 80000214 <word>",
+      "function": "main",
+      "c_line": 54,
+      "format": "S",
+      "opcode_name": "STORE",
+      "fields": [
+        {
+          "name": "imm[11:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0010000",
+          "meaning": "immediate bits [11:5] (immediate = 532)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01000",
+          "meaning": "rs2 = x8 (s0)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "10011",
+          "meaning": "rs1 = x19 (s3)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = sw"
+        },
+        {
+          "name": "imm[4:0]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "10100",
+          "meaning": "immediate bits [4:0]"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0100011",
+          "meaning": "opcode = STORE"
+        }
+      ],
+      "immediate": 532
+    },
+    {
+      "addr": "0x80000194",
+      "hex": "0x01041793",
+      "text": "slli a5,s0,0x10",
+      "function": "main",
+      "c_line": 55,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "10000",
+          "meaning": "shamt = 16"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = slli"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 16
+    },
+    {
+      "addr": "0x80000198",
+      "hex": "0x4107d793",
+      "text": "srai a5,a5,0x10",
+      "function": "main",
+      "c_line": 55,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0100000",
+          "meaning": "funct7 = srai"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "10000",
+          "meaning": "shamt = 16"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = srli/srai"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 16
+    },
+    {
+      "addr": "0x8000019c",
+      "hex": "0x80000937",
+      "text": "lui s2,0x80000",
+      "function": "main",
+      "c_line": 55,
+      "format": "U",
+      "opcode_name": "LUI: load upper immediate",
+      "fields": [
+        {
+          "name": "imm[31:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "10000000000000000000",
+          "meaning": "upper immediate = 0x80000"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "10010",
+          "meaning": "rd = x18 (s2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110111",
+          "meaning": "opcode = LUI: load upper immediate"
+        }
+      ],
+      "immediate": -2147483648
+    },
+    {
+      "addr": "0x800001a0",
+      "hex": "0x20f91823",
+      "text": "sh a5,528(s2) # 80000210 <half>",
+      "function": "main",
+      "c_line": 55,
+      "format": "S",
+      "opcode_name": "STORE",
+      "fields": [
+        {
+          "name": "imm[11:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0010000",
+          "meaning": "immediate bits [11:5] (immediate = 528)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01111",
+          "meaning": "rs2 = x15 (a5)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "10010",
+          "meaning": "rs1 = x18 (s2)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = sh"
+        },
+        {
+          "name": "imm[4:0]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "10000",
+          "meaning": "immediate bits [4:0]"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0100011",
+          "meaning": "opcode = STORE"
+        }
+      ],
+      "immediate": 528
+    },
+    {
+      "addr": "0x800001a4",
+      "hex": "0x01841793",
+      "text": "slli a5,s0,0x18",
+      "function": "main",
+      "c_line": 56,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "11000",
+          "meaning": "shamt = 24"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = slli"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 24
+    },
+    {
+      "addr": "0x800001a8",
+      "hex": "0x4187d793",
+      "text": "srai a5,a5,0x18",
+      "function": "main",
+      "c_line": 56,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0100000",
+          "meaning": "funct7 = srai"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "11000",
+          "meaning": "shamt = 24"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = srli/srai"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 24
+    },
+    {
+      "addr": "0x800001ac",
+      "hex": "0x800004b7",
+      "text": "lui s1,0x80000",
+      "function": "main",
+      "c_line": 56,
+      "format": "U",
+      "opcode_name": "LUI: load upper immediate",
+      "fields": [
+        {
+          "name": "imm[31:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "10000000000000000000",
+          "meaning": "upper immediate = 0x80000"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01001",
+          "meaning": "rd = x9 (s1)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110111",
+          "meaning": "opcode = LUI: load upper immediate"
+        }
+      ],
+      "immediate": -2147483648
+    },
+    {
+      "addr": "0x800001b0",
+      "hex": "0x20f486a3",
+      "text": "sb a5,525(s1) # 8000020d <byte>",
+      "function": "main",
+      "c_line": 56,
+      "format": "S",
+      "opcode_name": "STORE",
+      "fields": [
+        {
+          "name": "imm[11:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0010000",
+          "meaning": "immediate bits [11:5] (immediate = 525)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01111",
+          "meaning": "rs2 = x15 (a5)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01001",
+          "meaning": "rs1 = x9 (s1)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = sb"
+        },
+        {
+          "name": "imm[4:0]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01101",
+          "meaning": "immediate bits [4:0]"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0100011",
+          "meaning": "opcode = STORE"
+        }
+      ],
+      "immediate": 525
+    },
+    {
+      "addr": "0x800001b4",
+      "hex": "0xe7dff0ef",
+      "text": "jal ra,80000030 <smaller>",
+      "function": "main",
+      "c_line": 57,
+      "format": "J",
+      "opcode_name": "JAL: jump and link",
+      "fields": [
+        {
+          "name": "imm[20|10:1|11|19:12]",
+          "hi": 31,
+          "lo": 12,
+          "bits": "11100111110111111111",
+          "meaning": "offset = -388"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00001",
+          "meaning": "rd = x1 (ra)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1101111",
+          "meaning": "opcode = JAL: jump and link"
+        }
+      ],
+      "immediate": -388
+    },
+    {
+      "addr": "0x800001b8",
+      "hex": "0x00850533",
+      "text": "add a0,a0,s0",
+      "function": "main",
+      "c_line": 57,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01000",
+          "meaning": "rs2 = x8 (s0)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01010",
+          "meaning": "rs1 = x10 (a0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01010",
+          "meaning": "rd = x10 (a0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800001bc",
+      "hex": "0x2149a783",
+      "text": "lw a5,532(s3)",
+      "function": "main",
+      "c_line": 57,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000010100",
+          "meaning": "immediate = 532"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "10011",
+          "meaning": "rs1 = x19 (s3)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = lw"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 532
+    },
+    {
+      "addr": "0x800001c0",
+      "hex": "0x00f50533",
+      "text": "add a0,a0,a5",
+      "function": "main",
+      "c_line": 57,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01111",
+          "meaning": "rs2 = x15 (a5)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01010",
+          "meaning": "rs1 = x10 (a0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01010",
+          "meaning": "rd = x10 (a0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800001c4",
+      "hex": "0x21095783",
+      "text": "lhu a5,528(s2)",
+      "function": "main",
+      "c_line": 57,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000010000",
+          "meaning": "immediate = 528"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "10010",
+          "meaning": "rs1 = x18 (s2)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = lhu"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 528
+    },
+    {
+      "addr": "0x800001c8",
+      "hex": "0x01079793",
+      "text": "slli a5,a5,0x10",
+      "function": "main",
+      "c_line": 57,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "10000",
+          "meaning": "shamt = 16"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = slli"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 16
+    },
+    {
+      "addr": "0x800001cc",
+      "hex": "0x4107d793",
+      "text": "srai a5,a5,0x10",
+      "function": "main",
+      "c_line": 57,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0100000",
+          "meaning": "funct7 = srai"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "10000",
+          "meaning": "shamt = 16"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = srli/srai"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 16
+    },
+    {
+      "addr": "0x800001d0",
+      "hex": "0x00a787b3",
+      "text": "add a5,a5,a0",
+      "function": "main",
+      "c_line": 57,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01010",
+          "meaning": "rs2 = x10 (a0)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800001d4",
+      "hex": "0x20d4c503",
+      "text": "lbu a0,525(s1)",
+      "function": "main",
+      "c_line": 57,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000001101",
+          "meaning": "immediate = 525"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01001",
+          "meaning": "rs1 = x9 (s1)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "100",
+          "meaning": "funct3 = lbu"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01010",
+          "meaning": "rd = x10 (a0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 525
+    },
+    {
+      "addr": "0x800001d8",
+      "hex": "0x01851513",
+      "text": "slli a0,a0,0x18",
+      "function": "main",
+      "c_line": 57,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "11000",
+          "meaning": "shamt = 24"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01010",
+          "meaning": "rs1 = x10 (a0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = slli"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01010",
+          "meaning": "rd = x10 (a0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 24
+    },
+    {
+      "addr": "0x800001dc",
+      "hex": "0x41855513",
+      "text": "srai a0,a0,0x18",
+      "function": "main",
+      "c_line": 57,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0100000",
+          "meaning": "funct7 = srai"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "11000",
+          "meaning": "shamt = 24"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01010",
+          "meaning": "rs1 = x10 (a0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "101",
+          "meaning": "funct3 = srli/srai"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01010",
+          "meaning": "rd = x10 (a0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 24
+    },
+    {
+      "addr": "0x800001e0",
+      "hex": "0x00f50533",
+      "text": "add a0,a0,a5",
+      "function": "main",
+      "c_line": 58,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01111",
+          "meaning": "rs2 = x15 (a5)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01010",
+          "meaning": "rs1 = x10 (a0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01010",
+          "meaning": "rd = x10 (a0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800001e4",
+      "hex": "0x01c12083",
+      "text": "lw ra,28(sp)",
+      "function": "main",
+      "c_line": 58,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000011100",
+          "meaning": "immediate = 28"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = lw"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00001",
+          "meaning": "rd = x1 (ra)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 28
+    },
+    {
+      "addr": "0x800001e8",
+      "hex": "0x01812403",
+      "text": "lw s0,24(sp)",
+      "function": "main",
+      "c_line": 58,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000011000",
+          "meaning": "immediate = 24"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = lw"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 24
+    },
+    {
+      "addr": "0x800001ec",
+      "hex": "0x01412483",
+      "text": "lw s1,20(sp)",
+      "function": "main",
+      "c_line": 58,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000010100",
+          "meaning": "immediate = 20"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = lw"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01001",
+          "meaning": "rd = x9 (s1)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 20
+    },
+    {
+      "addr": "0x800001f0",
+      "hex": "0x01012903",
+      "text": "lw s2,16(sp)",
+      "function": "main",
+      "c_line": 58,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000010000",
+          "meaning": "immediate = 16"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = lw"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "10010",
+          "meaning": "rd = x18 (s2)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 16
+    },
+    {
+      "addr": "0x800001f4",
+      "hex": "0x00c12983",
+      "text": "lw s3,12(sp)",
+      "function": "main",
+      "c_line": 58,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000001100",
+          "meaning": "immediate = 12"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = lw"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "10011",
+          "meaning": "rd = x19 (s3)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 12
+    },
+    {
+      "addr": "0x800001f8",
+      "hex": "0x02010113",
+      "text": "addi sp,sp,32",
+      "function": "main",
+      "c_line": 58,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000100000",
+          "meaning": "immediate = 32"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00010",
+          "meaning": "rs1 = x2 (sp)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00010",
+          "meaning": "rd = x2 (sp)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 32
+    },
+    {
+      "addr": "0x800001fc",
+      "hex": "0x00008067",
+      "text": "jalr zero,0(ra)",
+      "function": "main",
+      "c_line": 58,
+      "format": "I",
+      "opcode_name": "JALR: jump and link register",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000000000000",
+          "meaning": "immediate = 0"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "00001",
+          "meaning": "rs1 = x1 (ra)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = jalr"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "00000",
+          "meaning": "rd = x0 (zero)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1100111",
+          "meaning": "opcode = JALR: jump and link register"
+        }
+      ],
+      "immediate": 0
+    }
+  ],
+  "compile_flags": [
+    "-march=rv32i",
+    "-mabi=ilp32",
+    "-Og",
+    "-g",
+    "-nostdlib",
+    "-ffreestanding"
+  ],
+  "ram_base": "0x80000000",
+  "ram_size_bytes": 4096,
+  "entry": "0x80000000",
+  "tohost": "0x80000218",
+  "image_file": "tour.hex"
+}

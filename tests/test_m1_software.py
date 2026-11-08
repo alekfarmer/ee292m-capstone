@@ -30,6 +30,13 @@ def test_spike_halts_with_a0_equal_55(golden: GoldenArtifact) -> None:
     assert golden.retired <= golden.max_cycles == 500
 
 
+def test_tour_halts_with_the_value_worked_out_by_hand(fresh_dir: Path) -> None:
+    """tour.c: r = 74470 before the stores, then r - 3 + 74470 + 8934 - 26 (see its comments)."""
+    golden = pipeline.get_golden(fresh_dir, program="tour")
+    assert golden.a0_at_halt == f"0x{157845:08x}"
+    assert golden.exit_code == 157845 & 0xFF  # Spike's exit code keeps the low 8 bits
+
+
 def test_golden_log_runs_from_entry_to_the_halt_store(
     program: ProgramArtifact, golden: GoldenArtifact
 ) -> None:
@@ -87,9 +94,12 @@ def test_addresses_are_word_aligned_and_consecutive(program: ProgramArtifact) ->
     assert all(a % 4 == 0 for a in addrs)
 
 
-@pytest.mark.parametrize("name", [pipeline.PROGRAM_FILE, pipeline.GOLDEN_FILE, "sum.hex"])
-def test_committed_program_artifacts_are_up_to_date(fresh_dir: Path, name: str) -> None:
-    rel = f"{pipeline.DEFAULT_PROGRAM}/{name}"
+@pytest.mark.parametrize("program", [c.stem for c in pipeline.committed_sources()])
+@pytest.mark.parametrize("name", [pipeline.PROGRAM_FILE, pipeline.GOLDEN_FILE, "{program}.hex"])
+def test_committed_program_artifacts_are_up_to_date(
+    fresh_dir: Path, program: str, name: str
+) -> None:
+    rel = f"{program}/{name.format(program=program)}"
     assert filecmp.cmp(fresh_dir / rel, ARTIFACTS_DIR / rel, shallow=False), (
         f"backend/artifacts/{rel} is stale; run 'make artifacts'"
     )

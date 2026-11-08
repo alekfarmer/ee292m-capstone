@@ -241,12 +241,17 @@ def toolchain_versions() -> dict[str, str]:
     }
 
 
+def committed_sources() -> list[Path]:
+    """The C files in ``backend/programs/``, in name order (sum.c, tour.c, ...)."""
+    return sorted(PROGRAMS_DIR.glob("*.c"))
+
+
 def build_all(out_dir: Path = ARTIFACTS_DIR) -> None:
     """Regenerate every artifact (``make artifacts``)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / TOOLCHAIN_FILE).write_text(json.dumps(toolchain_versions(), indent=2) + "\n")
     build_hardware_artifacts(out_dir)
-    for c_file in sorted(PROGRAMS_DIR.glob("*.c")):
+    for c_file in committed_sources():
         build_program_artifacts(c_file, out_dir)
         build_trace_artifacts(out_dir, program=c_file.stem)
 

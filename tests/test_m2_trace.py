@@ -144,8 +144,9 @@ def test_gate_level_equals_rtl_every_cycle(
             assert g is not None and g == r, f"cycle {cycle}, {name}: gate={g} rtl={r}"
 
 
-def test_committed_trace_is_up_to_date(fresh_dir: Path) -> None:
-    rel = f"{pipeline.DEFAULT_PROGRAM}/{pipeline.TRACE_FILE}"
+@pytest.mark.parametrize("program", [c.stem for c in pipeline.committed_sources()])
+def test_committed_trace_is_up_to_date(fresh_dir: Path, program: str) -> None:
+    rel = f"{program}/{pipeline.TRACE_FILE}"
     assert filecmp.cmp(fresh_dir / rel, ARTIFACTS_DIR / rel, shallow=False), (
         f"backend/artifacts/{rel} is stale; run 'make artifacts'"
     )

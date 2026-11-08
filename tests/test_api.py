@@ -78,7 +78,7 @@ def test_view_inputs_are_validated() -> None:
 
 
 def test_programs_are_listed_and_chosen_by_name() -> None:
-    assert client.get("/api/programs").json() == ["sum"]
+    assert client.get("/api/programs").json() == ["sum", "tour"]
     assert client.get("/api/golden", params={"program": "sum"}).json()["exit_code"] == 55
     assert client.get("/api/golden", params={"program": "nope"}).status_code == 404
     assert client.get("/api/golden", params={"program": "../x"}).status_code == 422
