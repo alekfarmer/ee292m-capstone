@@ -71,6 +71,7 @@ def _check_user_program(base: str) -> list[str]:
             base + "/",
             fragment=f"#program={name}",
             source=USER_SOURCE,
+            explanation=opening["explanation"]["what"],
         )
     )
     return problems
@@ -107,7 +108,12 @@ def check(base: str) -> tuple[list[str], str]:
         return problems, ""
     problems.extend(
         check_first_screen(
-            opening["cycle"], opening["asm_index"], opening["c_line"], start["reason"], base + "/"
+            opening["cycle"],
+            opening["asm_index"],
+            opening["c_line"],
+            start["reason"],
+            base + "/",
+            explanation=opening["explanation"]["what"],
         )
     )
     problems.extend(_check_m4_views(base, opening["cycle"]))
@@ -116,7 +122,8 @@ def check(base: str) -> tuple[list[str], str]:
         "5 + 3 = 0x00000008 on the gates, a0 = 55 in Spike and in the core's halt store, "
         f"{trace['cycles']}-cycle trace, page renders the datapath with pc = 0x80000000 "
         f"and opens on cycle {opening['cycle']} with its C line lit; a shifter stage "
-        "draws its gates and the register table matches the API; a typed program "
+        "draws its gates and the register table matches the API, and the bottom panel "
+        "explains the cycle as the API does; a typed program "
         f"builds through the API (a0 = {USER_A0}) and the page shows it"
     )
     return problems, summary

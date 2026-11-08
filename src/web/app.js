@@ -34,6 +34,14 @@ const els = {
   cancel: $("cancel"),
   buildStatus: $("build-status"),
   buildError: $("build-error"),
+  explain: document.querySelector(".explain"),
+  explainToggle: $("explain-toggle"),
+  explainWhat: $("explain-what"),
+  explainContext: $("explain-context"),
+  explainLook: $("explain-look"),
+  explainDeeperLine: $("explain-deeper-line"),
+  explainDeeper: $("explain-deeper"),
+  explainDeeperText: $("explain-deeper-text"),
 };
 const USER_PROGRAM = /^u_[0-9a-f]{16}$/; // names the backend gives typed programs
 
@@ -72,6 +80,8 @@ async function getJson(path, send) {
 function showError(message) {
   // Clear the drawing so a stale result never sits beside an error.
   els.view.replaceChildren();
+  for (const node of [els.explainWhat, els.explainContext, els.explainLook]) node.textContent = "";
+  els.explainDeeperLine.hidden = true;
   els.error.textContent = message;
   els.error.hidden = false;
   stopPlay();
@@ -177,6 +187,23 @@ function renderCycle(cv) {
   $("next-line").disabled = cv.next_line_cycle === null;
 }
 
+// Text with `backtick` spans shown as code (the backend quotes assembly that way).
+function withCode(node, value) {
+  node.replaceChildren(
+    ...value.split("`").map((part, i) => (i % 2 ? text("code", part) : document.createTextNode(part))),
+  );
+}
+
+// The backend's plain-language explanation of this cycle, in the bottom panel.
+function renderExplanation(e) {
+  withCode(els.explainWhat, e.what);
+  els.explainContext.textContent = e.context;
+  els.explainLook.textContent = e.look_for;
+  els.explainDeeperLine.hidden = e.deeper_view === null;
+  els.explainDeeperText.textContent = e.deeper ?? "";
+  els.explainDeeper.onclick = e.deeper_view === null ? null : () => openView(e.deeper_view);
+}
+
 function renderCrumbs(view) {
   const items = view.breadcrumbs.map((b, i) => {
     const last = i === view.breadcrumbs.length - 1;
@@ -214,6 +241,7 @@ async function show(cycle, path = state.viewPath) {
     history.replaceState(null, "", `#program=${state.programName}&cycle=${cycle}&view=${path}`);
     clearError();
     renderCycle(cv);
+    renderExplanation(cv.explanation);
     renderCrumbs(view);
     await drawModule(els.view, view, openView);
   } catch (err) {
@@ -367,6 +395,12 @@ function wireProgramControls() {
   els.edit.addEventListener("click", () => setEditing(true));
   els.cancel.addEventListener("click", () => setEditing(false));
   els.editor.addEventListener("submit", buildAndRun);
+  // Hide shrinks the panel to its first sentence, so more of the drawing shows.
+  els.explainToggle.addEventListener("click", () => {
+    const collapsed = els.explain.classList.toggle("collapsed");
+    els.explainToggle.textContent = collapsed ? "more" : "hide";
+    els.explainToggle.setAttribute("aria-expanded", String(!collapsed));
+  });
 }
 
 async function init() {

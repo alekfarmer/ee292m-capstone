@@ -156,16 +156,23 @@ def check_first_screen(
     base: str = BASE,
     fragment: str = "",
     source: list[str] | None = None,
+    explanation: str | None = None,
 ) -> list[str]:
     """Problems with the page opened without a cycle in the URL (empty list if right).
 
     It should open on ``cycle`` with exactly its C line and its instruction
     highlighted, and say why, in the backend's words (``reason``).
     ``fragment`` may name a program (``#program=...``); ``source``, if given,
-    is the program's C lines, which the C pane must show in order.
+    is the program's C lines, which the C pane must show in order; ``explanation``,
+    if given, the API's "what happened" sentence, which the bottom panel must show.
     """
     dom = dump_dom(fragment, base)
     problems = []
+    if explanation is not None:
+        m = re.search(r'id="explain-what"[^>]*>(.*?)</p>', dom, re.S)
+        drawn = html.unescape(re.sub(r"<[^>]+>", "", m.group(1))) if m else ""
+        if drawn != explanation.replace("`", ""):
+            problems.append(f"the explanation panel says {drawn[:60]!r}, not the API's")
     if source is not None:
         shown = [
             html.unescape(t) for t in re.findall(r"<li\b[^>]*data-line=[^>]*>([^<]*)</li>", dom)

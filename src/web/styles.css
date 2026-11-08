@@ -233,3 +233,22 @@ svg.adder .net-label { text-anchor: start; fill: var(--muted); }
 svg.adder .bit-label { fill: var(--muted); }
 svg.adder .port-label { text-anchor: start; }
 svg.adder .port-label.end { text-anchor: end; }
+
+/* The explanation: pinned to the bottom of the window while you step. */
+.explain {
+  position: sticky; bottom: 0; z-index: 2;
+  background: var(--panel); border-top: 2px solid var(--accent);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+  padding: 8px 16px 10px; font-size: 0.9rem;
+}
+.explain-head { display: flex; align-items: center; gap: 12px; }
+.explain-head h2 { font-size: 0.95rem; margin: 0; }
+.explain-head button, .explain-body button {
+  font: inherit; font-size: 0.85rem; padding: 2px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--fg);
+}
+.explain-body { max-height: 28vh; overflow: auto; max-width: 110ch; }
+.explain-body p { margin: 4px 0; }
+.explain-what { font-size: 0.98rem; }
+.explain-what code { background: var(--current); padding: 0 3px; border-radius: 3px; }
+.explain.collapsed .explain-body > :not(.explain-what) { display: none; }

@@ -202,6 +202,32 @@ PLANTS: tuple[Plant, ...] = (
         ),
     ),
     Plant(
+        name="explanation_branch_backwards",
+        defect="the cycle explanation says a branch is taken when it is not, and the reverse",
+        file="src/app/views/explain.py",
+        old="taken = c.pcnext != c.pc + 4",
+        new="taken = c.pcnext == c.pc + 4",
+        caught_at="tests",
+        message="FAILED tests/test_explain.py::test_the_numbers_are_the_ones_spike_says",
+        why=(
+            "The hardware and every drawn value are right, so artifacts pass; the "
+            "explanation test works out each branch's outcome from Spike's next pc."
+        ),
+    ),
+    Plant(
+        name="explanation_not_drawn",
+        defect="the page never fills in the explanation panel",
+        file="src/web/app.js",
+        old="    renderExplanation(cv.explanation);\n",
+        new="",
+        caught_at="smoke",
+        message="the explanation panel says",
+        why=(
+            "The API's explanations are right, so artifacts, tests and the spot-check "
+            "pass; only the smoke check reads the panel off the rendered page."
+        ),
+    ),
+    Plant(
         name="bgeu_as_bge",
         defect="the branch unit decides bgeu as a signed comparison (bge)",
         file="backend/rtl/branchunit.sv",

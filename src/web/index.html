@@ -101,6 +101,22 @@
     </section>
   </main>
 
+  <footer class="explain" aria-labelledby="explain-title">
+    <div class="explain-head">
+      <h2 id="explain-title">What happened in this cycle</h2>
+      <button type="button" id="explain-toggle" aria-expanded="true" aria-controls="explain-body">hide</button>
+    </div>
+    <div id="explain-body" class="explain-body" aria-live="polite">
+      <p id="explain-what" class="explain-what"></p>
+      <p id="explain-context" class="muted"></p>
+      <p><strong>Look for:</strong> <span id="explain-look"></span></p>
+      <p id="explain-deeper-line" hidden>
+        <button type="button" id="explain-deeper">⤢ open it</button>
+        <span id="explain-deeper-text" class="muted"></span>
+      </p>
+    </div>
+  </footer>
+
   <script src="/vendor/elkjs/lib/elk.bundled.js"></script>
   <script type="module" src="app.js"></script>
 </body>
