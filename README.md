@@ -283,6 +283,13 @@ finding built in, none pushed back on; what changed is in
 A review panel of six agents (`.claude/agents/`) then reviewed this round;
 every finding that stood is fixed, finding by finding in the work log.
 
+Round 5 (session 6b, systems: lrusso3, PR #13; every finding built in, none
+pushed back on):
+
+- The C source ran outside its box (`return sum;   // expected: 55 in a0`, in Chrome and VS Code): the C pane now scrolls like the assembly pane, so a long line scrolls sideways instead of wrapping, which would break the code's layout; `tests/test_page_layout.py` fails if any code pane is outside a scroll container (seen failing first).
+- A drawing of the repository's structure: "How the code is organized" now points to the annotated layout in ARCHITECTURE.md rather than keeping a second copy here that could drift.
+- Line endings on Windows still looked wrong, likely a stale checkout: `.gitattributes` keeps LF on every fresh checkout, and `tests/test_portability.py` names the cause if a checkout still has CRLF and says to clone again.
+
 ## Architecture and the backend/frontend boundary
 
 ```
@@ -329,6 +336,9 @@ the first slice limits the program to under 500 cycles.
 on the backend. The boundary does not move: the frontend still only renders.
 
 ## How the code is organized
+
+Every folder and file, with one line on what it holds, is in the Layout
+section of [ARCHITECTURE.md](ARCHITECTURE.md#layout).
 
 **One pipeline for the data.** A C file goes through the steps once, in order,
 and every value the page shows comes out of the end of it:
