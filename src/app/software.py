@@ -69,16 +69,98 @@ _OPERATORS = {
 }
 
 
-def check_subset(c_file: Path) -> None:
-    """Reject C constructs outside the supported subset, before compiling.
+# Text that makes the preprocessor act: '#' starts a directive (#include
+# reads a file), and '%:' and '??=' are other spellings of '#'.
+_DIRECTIVE_SPELLINGS = {
+    "#": "'#' is not supported: the subset has no preprocessor directives "
+    "(#include, #define, ...), and '#' is refused anywhere, comments included",
+    "%:": "'%:' is not supported: it is another spelling of '#', and the subset "
+    "has no preprocessor directives",
+    "??=": "'??=' is not supported: it is another spelling of '#', and the subset "
+    "has no preprocessor directives",
+}
+# Keywords that hand text to the assembler or the preprocessor
+# (`.incbin` would copy a file into the program).
+_INLINE_ASM = re.compile(r"\b(asm|__asm|__asm__)\b")
+_PRAGMA_OPERATOR = re.compile(r"\b_Pragma\b")
 
-    The source is preprocessed first, so comments and macros cannot hide or
-    fake a construct. Checks: no ``float``/``double`` or floating literals,
-    and no ``*``, ``/`` or ``%`` operators.
+
+def _code_only(text: str) -> str:
+    """``text`` with line splices joined and comments, strings and characters blanked.
+
+    Follows C's translation phases 2 and 3: a backslash-newline joins two
+    lines (inside an identifier too), then comments become a space and
+    string and character literals become empty quotes. Line breaks outside
+    splices are kept, so a line number in the result is the one in ``text``
+    unless a splice came before it (then it is early by one per splice).
+    """
+    text = text.replace("\\\r\n", "").replace("\\\n", "")
+    out: list[str] = []
+    i, n = 0, len(text)
+    while i < n:
+        ch = text[i]
+        two = text[i : i + 2]
+        if two == "//":
+            end = text.find("\n", i)
+            i = n if end < 0 else end
+            out.append(" ")
+        elif two == "/*":
+            end = text.find("*/", i + 2)
+            comment = text[i : n if end < 0 else end + 2]
+            out.append(" " + "\n" * comment.count("\n"))
+            i = n if end < 0 else end + 2
+        elif ch in "\"'":
+            j = i + 1
+            while j < n and text[j] != ch and text[j] != "\n":
+                j += 2 if text[j] == "\\" else 1
+            out.append(ch + ch)
+            i = j + 1
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def check_source_text(text: str, name: str) -> None:
+    """Refuse source that could make the compiler read anything but itself.
+
+    Runs before any tool sees the source: the subset check's preprocessor
+    would otherwise follow an ``#include`` of any file in the container, and
+    gcc's errors quote what it read. Refused: ``#`` and its other spellings
+    anywhere, inline assembly (``asm``, ``__asm__``), and ``_Pragma``.
 
     Raises:
         ProgramRejectedError: with the file, line and reason of the first problem.
     """
+    for spelling, reason in _DIRECTIVE_SPELLINGS.items():
+        if (at := text.find(spelling)) >= 0:
+            raise ProgramRejectedError(f"{name}:{text.count(chr(10), 0, at) + 1}: {reason}")
+    code = _code_only(text)
+    if m := _INLINE_ASM.search(code):
+        raise ProgramRejectedError(
+            f"{name}:{code.count(chr(10), 0, m.start()) + 1}: inline assembly "
+            f"('{m.group(1)}') is not supported: the program is C only"
+        )
+    if m := _PRAGMA_OPERATOR.search(code):
+        raise ProgramRejectedError(
+            f"{name}:{code.count(chr(10), 0, m.start()) + 1}: _Pragma is not "
+            "supported: the subset has no preprocessor"
+        )
+
+
+def check_subset(c_file: Path) -> None:
+    """Reject C constructs outside the supported subset, before compiling.
+
+    The raw text is checked first (:func:`check_source_text`), so nothing
+    can make the preprocessor read another file. The source is then
+    preprocessed, so comments cannot hide or fake a construct. Checks: no
+    ``float``/``double`` or floating literals, no ``*``, ``/`` or ``%``
+    operators, and no inline assembly.
+
+    Raises:
+        ProgramRejectedError: with the file, line and reason of the first problem.
+    """
+    check_source_text(c_file.read_text(), c_file.name)
     proc = run_tool([GCC, *COMPILE_FLAGS, "-E", str(c_file)], check=False)
     if proc.returncode != 0:
         raise ProgramRejectedError(_describe_compile_errors(proc.stderr, c_file))
@@ -95,6 +177,10 @@ def check_subset(c_file: Path) -> None:
         if current_file != name:
             continue
         code = _STRING_OR_CHAR.sub('""', raw)
+        if m := _INLINE_ASM.search(code):  # already refused above; kept as a second line
+            raise ProgramRejectedError(
+                f"{name}:{line_no}: inline assembly ('{m.group(1)}') is not supported"
+            )
         if m := _FLOAT_KEYWORD.search(code):
             raise ProgramRejectedError(
                 f"{name}:{line_no}: '{m.group(1)}' is not supported: "
