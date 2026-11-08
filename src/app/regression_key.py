@@ -188,6 +188,20 @@ PLANTS: tuple[Plant, ...] = (
         ),
     ),
     Plant(
+        name="typed_program_not_opened",
+        defect="the page ignores #program= and always opens sum.c",
+        file="src/web/app.js",
+        old='      hash.get("program") || DEFAULT_PROGRAM,',
+        new="      DEFAULT_PROGRAM,",
+        caught_at="smoke",
+        message="not the program's source",
+        why=(
+            "The backend builds and serves the typed program correctly, so artifacts, "
+            "tests and the spot-check pass; only the smoke check, which builds one "
+            "through the API and opens it on the page, sees sum.c instead."
+        ),
+    ),
+    Plant(
         name="bgeu_as_bge",
         defect="the branch unit decides bgeu as a signed comparison (bge)",
         file="backend/rtl/branchunit.sv",

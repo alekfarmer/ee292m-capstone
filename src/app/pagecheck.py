@@ -5,6 +5,7 @@ Used by ``make smoke`` (does the drawn page show the right values?) and
 """
 
 import argparse
+import html
 import re
 import sys
 from pathlib import Path
@@ -147,15 +148,29 @@ def _error_shown(dom: str) -> list[str]:
 
 
 def check_first_screen(
-    cycle: int, asm_index: int, c_line: int, reason: str, base: str = BASE
+    cycle: int,
+    asm_index: int,
+    c_line: int,
+    reason: str,
+    base: str = BASE,
+    fragment: str = "",
+    source: list[str] | None = None,
 ) -> list[str]:
-    """Problems with the page opened without a URL fragment (empty list if right).
+    """Problems with the page opened without a cycle in the URL (empty list if right).
 
     It should open on ``cycle`` with exactly its C line and its instruction
     highlighted, and say why, in the backend's words (``reason``).
+    ``fragment`` may name a program (``#program=...``); ``source``, if given,
+    is the program's C lines, which the C pane must show in order.
     """
-    dom = dump_dom("", base)
+    dom = dump_dom(fragment, base)
     problems = []
+    if source is not None:
+        shown = [
+            html.unescape(t) for t in re.findall(r"<li\b[^>]*data-line=[^>]*>([^<]*)</li>", dom)
+        ]
+        if [s.strip() for s in shown] != [s.strip() for s in source]:
+            problems.append(f"the C pane shows {shown[:3]}..., not the program's source")
     if f"cycle {cycle} /" not in dom:
         problems.append(f"the page did not open on cycle {cycle}")
     lit_lines = [_attr(t, "data-line") for t in _current(dom, "li")]

@@ -42,9 +42,27 @@
   <main>
     <section class="pane" aria-labelledby="c-title">
       <h2 id="c-title">C source <span id="c-file" class="muted"></span></h2>
-      <div class="code-scroll">
+      <div class="program-bar">
+        <label>program <select id="program-pick" aria-label="Program to show"></select></label>
+        <button type="button" id="edit" aria-expanded="false" aria-controls="editor">✎ edit</button>
+      </div>
+      <div id="c-view" class="code-scroll">
         <ol id="c-lines" class="code c-code"></ol>
       </div>
+      <form id="editor" class="editor" hidden>
+        <textarea id="source" class="source" spellcheck="false" autocomplete="off" rows="14"
+          maxlength="2000" aria-label="Your C program" aria-describedby="limits"></textarea>
+        <div class="editor-bar">
+          <button type="submit" id="run">▶ build and run</button>
+          <button type="button" id="cancel">cancel</button>
+          <span id="build-status" class="muted" role="status"></span>
+        </div>
+        <p id="limits" class="muted">Up to 2000 bytes and 60 lines. RV32I has no
+          <code>*</code> <code>/</code> <code>%</code> or floating point, and there is no C
+          library, so no <code>#include</code> (no <code>#</code> at all). It must halt within
+          500 instructions; <code>main</code>'s return value ends up in a0.</p>
+        <p id="build-error" class="error" role="alert" hidden></p>
+      </form>
     </section>
 
     <section class="pane" aria-labelledby="asm-title">

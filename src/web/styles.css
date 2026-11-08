@@ -98,11 +98,11 @@ code, .code, .fbits, .wire-value, svg text { font-family: ui-monospace, "SF Mono
 h1 { font-size: 1.3rem; margin: 0; }
 .lede { margin: 0; color: var(--muted); font-size: 0.9rem; max-width: 72ch; }
 .stepper { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.stepper button, .crumb {
+.stepper button, .crumb, .program-bar button, .program-bar select, .editor-bar button {
   font: inherit; font-size: 0.9rem; padding: 4px 10px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--line); background: var(--panel); color: var(--fg);
 }
-.stepper button:disabled { opacity: 0.4; cursor: default; }
+.stepper button:disabled, .editor-bar button:disabled { opacity: 0.4; cursor: default; }
 .stepper button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .slider { display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
 .slider input { width: min(260px, 40vw); }
@@ -127,6 +127,15 @@ main {
 .c-code li { white-space: pre; cursor: pointer; padding: 0 4px; border-radius: 3px; }
 .c-code li::marker { color: var(--muted); }
 .code-scroll { max-height: 300px; overflow: auto; }
+.program-bar { display: flex; gap: 8px; align-items: center; margin: 0 0 6px; font-size: 0.85rem; flex-wrap: wrap; }
+.editor textarea.source {
+  box-sizing: border-box; width: 100%; resize: vertical; font-family: ui-monospace, monospace;
+  background: var(--bg); color: inherit; border: 1px solid var(--line); border-radius: 4px; padding: 6px;
+  font-size: 0.82rem; white-space: pre; overflow: auto; tab-size: 4;
+}
+.editor-bar { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+.editor .error { margin: 6px 0 0; white-space: pre-wrap; }
+#limits { margin: 4px 0 0; }
 .asm { border-collapse: collapse; width: 100%; }
 .asm th { text-align: left; color: var(--muted); font-weight: normal; position: sticky; top: 0; background: var(--panel); }
 .asm td { padding: 0 8px 0 0; white-space: nowrap; cursor: pointer; }

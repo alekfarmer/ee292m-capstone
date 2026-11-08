@@ -25,10 +25,21 @@ const els = {
   play: $("play"),
   speed: $("speed"),
   fit: $("fit"),
+  pick: $("program-pick"),
+  edit: $("edit"),
+  cView: $("c-view"),
+  editor: $("editor"),
+  source: $("source"),
+  run: $("run"),
+  cancel: $("cancel"),
+  buildStatus: $("build-status"),
+  buildError: $("build-error"),
 };
+const USER_PROGRAM = /^u_[0-9a-f]{16}$/; // names the backend gives typed programs
 
 const state = {
   programName: DEFAULT_PROGRAM, // which program's artifacts to show
+  examples: [], // the committed programs, from /api/programs
   program: null,
   cycles: 0,
   cycle: 0,
@@ -43,10 +54,18 @@ function programQuery() {
   return `program=${encodeURIComponent(state.programName)}`;
 }
 
-async function getJson(path) {
-  const resp = await fetch(path);
+// The page's one way to reach the API: GET, or POST when `send` is given.
+async function getJson(path, send) {
+  const init = send === undefined
+    ? {}
+    : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(send) };
+  const resp = await fetch(path, init);
   const body = await resp.json().catch(() => ({}));
-  if (!resp.ok) throw new Error(body.detail || `request failed: ${resp.status}`);
+  if (!resp.ok) {
+    // FastAPI's own validation errors give a list; ours give one plain message.
+    const detail = Array.isArray(body.detail) ? body.detail.map((d) => d.msg).join("; ") : body.detail;
+    throw new Error(detail || `request failed: ${resp.status}`);
+  }
   return body;
 }
 
@@ -251,7 +270,8 @@ function wireControls() {
   const changed = $("show-changed");
   changed.addEventListener("change", () => els.view.classList.toggle("no-changes", !changed.checked));
   document.addEventListener("keydown", (ev) => {
-    if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLSelectElement) return;
+    const typing = [HTMLInputElement, HTMLSelectElement, HTMLTextAreaElement];
+    if (typing.some((kind) => ev.target instanceof kind)) return;
     const keys = {
       ArrowLeft: () => step(state.cycle - 1),
       ArrowRight: () => step(state.cycle + 1),
@@ -268,26 +288,101 @@ function wireControls() {
   });
 }
 
+// --- choosing and typing a program (M5) -------------------------------------------
+
+// Load a program's listing and open it: on `cycle` if given (a link), else
+// where the backend says the layers line up.
+async function load(name, cycle = null, view = DEFAULT_VIEW) {
+  stopPlay();
+  state.programName = name;
+  state.selectedLine = null;
+  state.cv = null;
+  state.program = await getJson(`/api/program?${programQuery()}`);
+  const golden = await getJson(`/api/golden?${programQuery()}`);
+  state.cycles = golden.retired;
+  els.slider.max = String(state.cycles - 1);
+  renderSource(state.program);
+  renderPicker();
+  const opening = await getJson(`/api/start?${programQuery()}`);
+  const linked = cycle !== null;
+  const start = linked ? Math.min(Math.max(cycle, 0), state.cycles - 1) : opening.cycle;
+  // Say why only when the page chose the cycle; a link chose it otherwise.
+  els.startReason.textContent = linked ? "" : `It opened on cycle ${opening.cycle}, ${opening.reason}.`;
+  await show(start, view);
+}
+
+// The examples from /api/programs, plus "your program" while one is shown.
+function renderPicker() {
+  const names = [...state.examples];
+  if (!names.includes(state.programName)) names.push(state.programName);
+  els.pick.replaceChildren(
+    ...names.map((name) => {
+      const label = USER_PROGRAM.test(name) ? "your program" : `${name}.c`;
+      const opt = text("option", label);
+      opt.value = name;
+      return opt;
+    }),
+  );
+  els.pick.value = state.programName;
+}
+
+function setEditing(on) {
+  els.editor.hidden = !on;
+  els.cView.hidden = on;
+  els.edit.setAttribute("aria-expanded", String(on));
+  els.edit.disabled = on;
+  els.buildError.hidden = true;
+  els.buildStatus.textContent = "";
+  if (on) {
+    // Start from the program on screen: its source exactly as the backend holds it.
+    els.source.value = (state.program?.c_lines ?? []).map((l) => l.text).join("\n") + "\n";
+    els.source.focus();
+  }
+}
+
+async function buildAndRun(ev) {
+  ev.preventDefault();
+  els.run.disabled = true;
+  els.buildError.hidden = true;
+  els.buildStatus.textContent = "building: compile, Spike, gate level and RTL ...";
+  try {
+    const built = await getJson("/api/programs", { source: els.source.value });
+    setEditing(false);
+    await load(built.program);
+  } catch (err) {
+    // A rejected program keeps the old program on screen; the message says why.
+    els.buildStatus.textContent = "";
+    els.buildError.textContent = err.message;
+    els.buildError.hidden = false;
+  } finally {
+    els.run.disabled = false;
+  }
+}
+
+function wireProgramControls() {
+  els.pick.addEventListener("change", () => {
+    setEditing(false);
+    load(els.pick.value).catch((err) => showError(err.message));
+  });
+  els.edit.addEventListener("click", () => setEditing(true));
+  els.cancel.addEventListener("click", () => setEditing(false));
+  els.editor.addEventListener("submit", buildAndRun);
+}
+
 async function init() {
   wireControls();
+  wireProgramControls();
   try {
+    state.examples = await getJson("/api/programs");
     // The URL can name a program, a cycle and a view:
     //   #program=sum&cycle=11&view=top.rv.dp.alu
     const hash = new URLSearchParams(location.hash.slice(1));
-    state.programName = hash.get("program") || DEFAULT_PROGRAM;
-    state.program = await getJson(`/api/program?${programQuery()}`);
-    const golden = await getJson(`/api/golden?${programQuery()}`);
-    state.cycles = golden.retired;
-    els.slider.max = String(state.cycles - 1);
-    renderSource(state.program);
-    // Without a cycle in the URL, open where the backend says the layers line up.
-    const opening = await getJson(`/api/start?${programQuery()}`);
     const asked = Number(hash.get("cycle") ?? "x");
-    const linked = Number.isInteger(asked);
-    const start = linked ? Math.min(Math.max(asked, 0), state.cycles - 1) : opening.cycle;
-    // Say why only when the page chose the cycle; a link chose it otherwise.
-    els.startReason.textContent = linked ? "" : `It opened on cycle ${opening.cycle}, ${opening.reason}.`;
-    await show(start, hash.get("view") || DEFAULT_VIEW);
+    await load(
+      hash.get("program") || DEFAULT_PROGRAM,
+      Number.isInteger(asked) ? asked : null,
+      hash.get("view") || DEFAULT_VIEW,
+    );
   } catch (err) {
     showError(err.message);
   }
