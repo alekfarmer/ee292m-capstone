@@ -12,6 +12,7 @@ from app.models import (
     RegisterWrite,
     StartCycle,
 )
+from app.views.explain import explain
 from app.views.trace import TraceIndex
 
 
@@ -127,4 +128,13 @@ def cycle_view(
         prev_line_cycle=runs[run - 1][0] if run > 0 else None,
         next_line_cycle=runs[run + 1][0] if run + 1 < len(runs) else None,
         halt=n == len(golden.entries) - 1,
+        explanation=explain(
+            n,
+            line,
+            program,
+            index,
+            written=int(entry.rd_value, 16) if write is not None and entry.rd_value else None,
+            a0_at_halt=int(golden.a0_at_halt, 16),
+            last=n == len(golden.entries) - 1,
+        ),
     )
