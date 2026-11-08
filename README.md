@@ -88,11 +88,23 @@ The page follows a C program cycle by cycle (`sum.c` unless you pick another):
 - **Stepping**: by cycle or by C line, a slider, play (1–5 cycles a second),
   and keys (← → cycle, ↑ ↓ C line, Home/End, space = play). The URL keeps the
   program, cycle and view, e.g. `#program=sum&cycle=11&view=top.rv.dp.alu`.
+- **What happened in this cycle**: a panel pinned to the bottom of the window
+  explains each cycle in plain words, for a reader who has never seen
+  assembly. It says what the instruction did, with this cycle's values ("`add
+  a0,a0,a5` adds a0 (= 0) and a5 (= 1) and saves the result, 1, in a0"), the
+  line of C it belongs to, and what to look for on the datapath (which blocks
+  and wires carry it). It also offers a view to open for more detail, such as
+  the adder doing the addition. **hide** shrinks it to the first sentence. The
+  backend writes it from the verified trace: `tests/test_explain.py` checks
+  every number against Spike's log, every block and wire it names against the
+  datapath, and every control value it states (`regwrite is 1`, `pcsrc is
+  2`) against what that instruction must set.
 
 `make screenshot` saves pictures of a few views to `backend/build/screenshots/`.
 
 `make pr TITLE="..." BODY=file.md` opens a pull request from the current
-branch into `main` (it uses the host's `gh`; it refuses to run on `main`).
+branch into `main` (it uses the host's `gh`; it refuses to run on `main`), and
+`make pr-body BODY=file.md` replaces that pull request's description.
 
 `make artifacts` regenerates everything in `backend/artifacts/` from the
 sources; the generated files are committed, and the tests fail if they are
@@ -262,6 +274,8 @@ artifacts`.
 | A halfword store to bytes 2-3 enables bytes 0-1 | `make test`: "rv.dp.lsu.byteen (lsu) is 0x3, should be 0xc" | No program stores a halfword there, so nothing wrong reaches memory; the LSU model, run over every cycle of `sum.c` in `make test`, sees the wrong byte enables |
 | `sra` wrong only on small negatives and some shift amounts | spot-check: "rv.dp.alu.sh.y_sra (shifter) is" | No program runs `sra` by those amounts, and `sum.c`'s operands never have bits 31 and 30 set; the shifter's model sees it in a `tour.c` cycle that is not a shift |
 | The page ignores `#program=` | smoke: "not the program's source" | The backend builds and serves the typed program right; only the smoke check opens it on the page |
+| The explanation says a branch is taken when it is not | `make test`: `test_the_numbers_are_the_ones_spike_says` | The hardware is right; the test works out each branch's outcome from Spike's next pc |
+| The page never fills in the explanation panel | smoke: "the explanation panel says" | The API's explanations are right; only the smoke check reads the panel |
 | `bgeu` decided as `bge` | nothing (a known blind spot) | `tour.c`'s one `bgeu` compares two positive numbers, where signed and unsigned agree; the branch unit has no model |
 
 The tripwire almost any wrong result moves is a0 = 55, checked two

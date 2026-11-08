@@ -52,7 +52,7 @@ BODY ?=
 LOCK_HINT := A manifest and its lock may disagree. After changing docker/pyproject.toml \
 or docker/package.json, run 'make lock' and commit each manifest with its lock.
 
-.PHONY: help build up down verify clean test lint fmt smoke spot-check logs shell lock artifacts synth-log preview screenshot regression pr \
+.PHONY: help build up down verify clean test lint fmt smoke spot-check logs shell lock artifacts synth-log preview screenshot regression pr pr-body \
 	pull publish publish-manifest base-digests
 
 help: ## List the targets
@@ -62,6 +62,7 @@ help: ## List the targets
 	@echo "  up / down  Start / stop the app on http://127.0.0.1:$${APP_PORT:-8000}"
 	@echo "  verify     Lint, test, spot-check and smoke: the gate"
 	@echo "  pr         Open a pull request from this branch into main (TITLE=..., BODY=file)"
+	@echo "  pr-body    Replace the description of this branch's pull request (BODY=file)"
 	@echo "  clean      Remove this project's containers, images and generated files"
 	@echo "While developing:"
 	@echo "  artifacts  Regenerate everything in backend/artifacts/ (M0-M2, every program)"
@@ -170,6 +171,12 @@ pr: ## Open a pull request from this branch into main (TITLE=..., BODY=file)
 	 if [ "$$branch" = main ]; then echo "pr: on main; open a PR from a feature branch" >&2; exit 1; fi; \
 	 if [ -z "$(TITLE)" ] || [ ! -f "$(BODY)" ]; then echo "pr: needs TITLE=... and BODY=<file>" >&2; exit 1; fi; \
 	 gh pr create --base main --head "$$branch" --title "$(TITLE)" --body-file "$(BODY)"
+
+pr-body: ## Replace the description of this branch's open pull request (BODY=file)
+	@branch="$$(git rev-parse --abbrev-ref HEAD)"; \
+	 if [ "$$branch" = main ]; then echo "pr-body: on main; run it on a feature branch" >&2; exit 1; fi; \
+	 if [ ! -f "$(BODY)" ]; then echo "pr-body: needs BODY=<file>" >&2; exit 1; fi; \
+	 gh pr edit "$$branch" --body-file "$(BODY)"
 
 publish: ## CI only: push this machine's verified image as IMAGE_TAG-<arch>
 	$(CHECK_TAG)

@@ -84,8 +84,9 @@ src/app/             the backend: api.py (routes only), pipeline.py (entry
                      software.py (gcc, objdump, Spike), hardware.py (Yosys),
                      simulate.py (whole-core runs and checks), vcd.py,
                      decode.py (instruction fields), views/ (trace.py,
-                     cycle.py, module.py, registers.py: per-cycle and
-                     module views), render.py (adder SVG), tools.py,
+                     cycle.py, module.py, registers.py, explain.py:
+                     per-cycle and module views, and each cycle in plain
+                     words), render.py (adder SVG), tools.py,
                      errors.py, paths.py, pagecheck.py (headless Chromium),
                      cli.py (`make artifacts`), smoke.py (`make smoke`),
                      spotcheck.py (`make spot-check`),
@@ -149,6 +150,14 @@ Makefile  README.md  ARCHITECTURE.md  AGENTS.md  CLAUDE.md
   takes about a second; the size limit, not a job queue, keeps it so.
 - The committed programs together run every RV32I instruction the core has
   (`tests/test_coverage.py`), so Spike checks the decoders on each one.
+- Explanations: `views/explain.py` writes each cycle's `explanation` (part of
+  `/api/cycle/{n}`): what the instruction did with this cycle's values, its C
+  line, what to look for on the datapath, and a view to open for more. The
+  values come from the trace (register reads, ALU result, next PC, control
+  signals) and Spike's log (the value written). It also lists the datapath
+  blocks and wires it names, so `tests/test_explain.py` can check each one is
+  on the drawing. The page shows the text in a panel pinned to the bottom of
+  the window and only splits out the backtick-quoted assembly.
 - Views: `views/module.py` turns any module of the netlist into a graph (its
   ports, blocks or gates, constants, and the wires between them, each wire
   naming its trace signal and bit range) with values for one cycle. Modules
