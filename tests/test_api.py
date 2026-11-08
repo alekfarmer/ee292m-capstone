@@ -1,7 +1,11 @@
 """The API serves the committed artifacts and validates its inputs."""
 
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
 
+from app import pipeline
 from app.api import app
 from tests.svg_reading import read_sum
 
@@ -92,3 +96,58 @@ def test_start_cycle_served_and_unknown_program_is_404() -> None:
     assert body["cycle"] == 11
     assert body["reason"] == "the first time the program loops back"
     assert client.get("/api/start?program=nope").status_code == 404
+
+
+def test_a_typed_program_is_built_and_then_served_by_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(pipeline, "USER_DIR", tmp_path / "user")
+    source = (
+        "int main(void) {\n"
+        "    int t = 0;\n"
+        "    for (int i = 0; i < 4; i++)\n"
+        "        t += 3;\n"
+        "    return t;\n"
+        "}\n"
+    )
+    resp = client.post("/api/programs", json={"source": source})
+    assert resp.status_code == 200, resp.text
+    name = resp.json()["program"]
+    assert resp.json()["cached"] is False
+    golden = client.get("/api/golden", params={"program": name}).json()
+    assert golden["a0_at_halt"] == "0x0000000c"  # 3 + 3 + 3 + 3
+    start = client.get("/api/start", params={"program": name}).json()["cycle"]
+    view = client.get("/api/view/top.rv.dp", params={"cycle": start, "program": name})
+    assert view.status_code == 200
+    again = client.post("/api/programs", json={"source": source}).json()
+    assert again == {"program": name, "cached": True}
+
+
+def test_a_rejected_program_is_a_422_with_one_plain_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(pipeline, "USER_DIR", tmp_path / "user")
+    resp = client.post("/api/programs", json={"source": "int main(void) { return 6 * 7; }\n"})
+    assert resp.status_code == 422
+    assert resp.json() == {
+        "detail": "your_program.c:1: '*' is not supported: the core has no M extension "
+        "(and pointers are outside the subset)"
+    }
+
+
+def test_the_request_body_is_validated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pipeline, "USER_DIR", tmp_path / "user")
+    assert client.post("/api/programs", json={}).status_code == 422
+    assert client.post("/api/programs", json={"source": ""}).status_code == 422
+    assert client.post("/api/programs", json={"source": "x" * 2001}).status_code == 422
+    extra = {"source": "int main(void) { return 0; }", "flags": "-O3"}
+    assert client.post("/api/programs", json=extra).status_code == 422
+
+
+def test_a_second_build_at_once_is_a_503(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pipeline, "USER_DIR", tmp_path / "user")
+    with pipeline.BUILD_LOCK:
+        resp = client.post("/api/programs", json={"source": "int main(void) { return 1; }\n"})
+    assert resp.status_code == 503
+    assert resp.headers["Retry-After"] == "2"
+    assert "another program is being built" in resp.json()["detail"]

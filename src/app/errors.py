@@ -15,3 +15,7 @@ class ProgramRejectedError(PipelineError):
 
 class ArtifactMissingError(PipelineError):
     """A generated artifact is missing; run ``make artifacts``."""
+
+
+class BuildBusyError(PipelineError):
+    """Another user program is being built; try again shortly."""

@@ -10,7 +10,12 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from app import pipeline
-from app.errors import ArtifactMissingError, PipelineError
+from app.errors import (
+    ArtifactMissingError,
+    BuildBusyError,
+    PipelineError,
+    ProgramRejectedError,
+)
 from app.models import (
     AdderCaseInfo,
     AdderView,
@@ -22,6 +27,8 @@ from app.models import (
     ProgramArtifact,
     StartCycle,
     TraceArtifact,
+    UserProgram,
+    UserProgramSource,
 )
 from app.paths import VENDOR_DIR, WEB_DIR
 
@@ -56,6 +63,16 @@ async def _pipeline_error(_: Request, exc: PipelineError) -> JSONResponse:
     return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
+@app.exception_handler(ProgramRejectedError)
+async def _program_rejected(_: Request, exc: ProgramRejectedError) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.exception_handler(BuildBusyError)
+async def _build_busy(_: Request, exc: BuildBusyError) -> JSONResponse:
+    return JSONResponse(status_code=503, content={"detail": str(exc)}, headers={"Retry-After": "2"})
+
+
 @app.get("/api/health")
 def health() -> Health:
     """Liveness check."""
@@ -66,6 +83,16 @@ def health() -> Health:
 def programs() -> list[str]:
     """The programs that have artifacts, by name (e.g. 'sum')."""
     return pipeline.list_programs()
+
+
+@app.post("/api/programs")
+def build_program(body: UserProgramSource) -> UserProgram:
+    """Build a typed C program and check it like sum.c (M5); name it for ?program=.
+
+    422: too large or outside the C subset (one plain message). 503: another
+    program is being built. 500: the core and Spike disagree.
+    """
+    return pipeline.build_user_program(body.source)
 
 
 def _unknown_program(name: str) -> HTTPException:

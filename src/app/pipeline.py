@@ -10,21 +10,33 @@ toolchain) sit in ``backend/artifacts/``; each program's artifacts (listing,
 hex image, Spike log, trace) sit in their own folder named after the program,
 e.g. ``backend/artifacts/sum/``, so programs never overwrite each other.
 
+Building live (M5, ``POST /api/programs``):
+    :func:`build_user_program`  a typed program, through M1 and M2, into
+    ``backend/build/user/u_<hash>/``; served by that name like a committed one
+
 Serving (one function per API endpoint): ``get_*`` read the committed
-artifacts and return typed results; nothing is recomputed per request except
-the drawings of already-computed values.
+artifacts (or a user program's) and return typed results; nothing is
+recomputed per request except the drawings of already-computed values.
 """
 
+import hashlib
 import json
 import platform
 import re
+import shutil
+import threading
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
 from app import hardware, render, simulate, software, views
-from app.errors import ArtifactMissingError, PipelineError
+from app.errors import (
+    ArtifactMissingError,
+    BuildBusyError,
+    PipelineError,
+    ProgramRejectedError,
+)
 from app.models import (
     AdderCaseInfo,
     AdderValuesArtifact,
@@ -39,8 +51,9 @@ from app.models import (
     TraceArtifact,
     TraceSignal,
     TraceVerification,
+    UserProgram,
 )
-from app.paths import ARTIFACTS_DIR, BUILD_DIR, PROGRAMS_DIR, SUM_PROGRAM
+from app.paths import ARTIFACTS_DIR, BUILD_DIR, PROGRAMS_DIR, SUM_PROGRAM, USER_DIR
 from app.tools import run_tool
 
 NETLIST_FILE = "netlist.json"
@@ -53,6 +66,14 @@ TRACE_FILE = "trace.json"
 EXTRA_CYCLES = 8  # simulate past Spike's halt, so a late halt is caught too
 DEFAULT_PROGRAM = SUM_PROGRAM.stem  # "sum"
 PROGRAM_NAME = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+
+# User programs (M5): typed on the page, built live into USER_DIR.
+USER_PROGRAM_NAME = re.compile(r"^u_[0-9a-f]{16}$")
+USER_SOURCE_FILE = "your_program.c"  # the name the page and messages show
+MAX_SOURCE_BYTES = 2000  # small, so a live build stays around a second
+MAX_SOURCE_LINES = 60
+MAX_USER_PROGRAMS = 32  # older ones are removed
+BUILD_LOCK = threading.Lock()  # one live build at a time
 
 ADDER_CASES = [
     hardware.AdderCase("5_plus_3", "5 + 3", 5, 3, 0),
@@ -85,16 +106,18 @@ def build_program_artifacts(
     c_file: Path = SUM_PROGRAM,
     out_dir: Path = ARTIFACTS_DIR,
     work_dir: Path = BUILD_DIR / "software",
+    name: str | None = None,
 ) -> tuple[ProgramArtifact, GoldenArtifact]:
     """M1: compile ``c_file``; write program.json, the hex image and golden.json.
 
-    They go in ``out_dir / <program name>/``, the name being the file's stem.
+    They go in ``out_dir / <program name>/``, the name being ``name`` or, by
+    default, the file's stem.
 
     Raises:
         ProgramRejectedError: the program is outside the subset or does not halt.
         ValueError: the file name is not a valid program name.
     """
-    name = c_file.stem
+    name = name or c_file.stem
     if not PROGRAM_NAME.match(name):
         raise ValueError(f"program name '{name}' must match {PROGRAM_NAME.pattern}")
     work_dir = work_dir / name
@@ -130,12 +153,13 @@ def build_trace_artifacts(
     out_dir: Path = ARTIFACTS_DIR,
     work_dir: Path = BUILD_DIR / "trace",
     program: str = DEFAULT_PROGRAM,
+    netlist_dir: Path | None = None,
 ) -> TraceArtifact:
     """M2: run ``program`` on the gate netlist and the RTL; verify; write its trace.json.
 
-    Needs netlist.json in ``out_dir`` and the program's listing, hex image and
-    golden.json in ``out_dir / program``. Nothing is written unless every
-    check passes:
+    Needs netlist.json in ``netlist_dir`` (default ``out_dir``) and the
+    program's listing, hex image and golden.json in ``out_dir / program``.
+    Nothing is written unless every check passes:
 
     * the gate level and the RTL agree on every common signal, every cycle
       (every module port among them);
@@ -147,7 +171,7 @@ def build_trace_artifacts(
     Raises:
         PipelineError: a check failed (the message names the cycle and signal).
     """
-    netlist_path = out_dir / NETLIST_FILE
+    netlist_path = (netlist_dir or out_dir) / NETLIST_FILE
     netlist = hardware.load_netlist(netlist_path)
     prog_dir = program_dir(out_dir, program)
     listing = get_program(out_dir, program=program)
@@ -256,6 +280,104 @@ def build_all(out_dir: Path = ARTIFACTS_DIR) -> None:
         build_trace_artifacts(out_dir, program=c_file.stem)
 
 
+# --- user programs (M5) -------------------------------------------------------
+
+
+def check_user_source(source: str) -> str:
+    """Validate a typed program's size and characters; return it with LF line endings.
+
+    Raises:
+        ProgramRejectedError: empty, over ``MAX_SOURCE_BYTES`` bytes or
+            ``MAX_SOURCE_LINES`` lines, or holding a control character.
+    """
+    source = source.replace("\r\n", "\n")
+    if not source.strip():
+        raise ProgramRejectedError("the program is empty")
+    size = len(source.encode("utf-8"))
+    if size > MAX_SOURCE_BYTES:
+        raise ProgramRejectedError(
+            f"the program is {size} bytes; the limit is {MAX_SOURCE_BYTES} bytes, "
+            "so every live build stays quick"
+        )
+    lines = len(source.splitlines())
+    if lines > MAX_SOURCE_LINES:
+        raise ProgramRejectedError(
+            f"the program is {lines} lines; the limit is {MAX_SOURCE_LINES} lines"
+        )
+    for line_no, line in enumerate(source.splitlines(), start=1):
+        if bad := [c for c in line if (ord(c) < 32 and c != "\t") or ord(c) == 127]:
+            raise ProgramRejectedError(
+                f"{USER_SOURCE_FILE}:{line_no}: control character "
+                f"U+{ord(bad[0]):04X} is not allowed in the source"
+            )
+    return source if source.endswith("\n") else source + "\n"
+
+
+def list_user_programs() -> list[str]:
+    """The user programs built and kept so far, by name."""
+    if not USER_DIR.is_dir():
+        return []
+    return sorted(
+        d.name
+        for d in USER_DIR.iterdir()
+        if USER_PROGRAM_NAME.match(d.name) and (d / TRACE_FILE).exists()
+    )
+
+
+def _remove_old_user_programs() -> None:
+    """Keep the ``MAX_USER_PROGRAMS`` most recently used user programs."""
+    kept = sorted(
+        (USER_DIR / name for name in list_user_programs()),
+        key=lambda d: (d.stat().st_mtime_ns, d.name),
+        reverse=True,
+    )
+    for old in kept[MAX_USER_PROGRAMS:]:
+        shutil.rmtree(old)
+
+
+def build_user_program(source: str, art_dir: Path = ARTIFACTS_DIR) -> UserProgram:
+    """POST /api/programs: build a typed program and check it exactly like sum.c.
+
+    The program is named after a hash of its source, so the same source is
+    built once. It is compiled, run in Spike, run on the gate netlist and the
+    RTL, and every check of :func:`build_trace_artifacts` must pass; only
+    then is its folder moved into ``USER_DIR``, so a half-built or rejected
+    program is never served. One build runs at a time.
+
+    Raises:
+        ProgramRejectedError: too large, outside the subset, or does not halt.
+        BuildBusyError: another program is being built.
+        PipelineError: a check failed (the core and Spike disagree).
+    """
+    source = check_user_source(source)
+    name = "u_" + hashlib.sha256(source.encode("utf-8")).hexdigest()[:16]
+    final = USER_DIR / name
+    if (final / TRACE_FILE).exists():
+        final.touch()  # most recently used: kept longest (touch updates a folder's time)
+        return UserProgram(program=name, cached=True)
+    if not BUILD_LOCK.acquire(blocking=False):
+        raise BuildBusyError("another program is being built; try again in a few seconds")
+    staging = USER_DIR / ".staging" / name
+    try:
+        if (final / TRACE_FILE).exists():  # built by the request that held the lock
+            return UserProgram(program=name, cached=True)
+        shutil.rmtree(staging, ignore_errors=True)
+        c_file = staging / "src" / USER_SOURCE_FILE
+        c_file.parent.mkdir(parents=True)
+        c_file.write_text(source)
+        out = staging / "out"
+        build_program_artifacts(c_file, out, staging / "work", name=name)
+        build_trace_artifacts(out, staging / "trace", program=name, netlist_dir=art_dir)
+        shutil.rmtree(final, ignore_errors=True)  # a folder left without its trace
+        (out / name).replace(final)
+        final.touch()
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+        BUILD_LOCK.release()
+    _remove_old_user_programs()
+    return UserProgram(program=name, cached=False)
+
+
 # --- serving -------------------------------------------------------------------
 
 
@@ -286,11 +408,13 @@ def program_dir(art_dir: Path, program: str) -> Path:
         ArtifactMissingError: no program has artifacts yet.
     """
     known = list_programs(art_dir)
-    if program not in known:
-        if not known:
-            raise ArtifactMissingError("no program has been built yet; run 'make artifacts'")
-        raise KeyError(program)
-    return art_dir / program
+    if program in known:
+        return art_dir / program
+    if USER_PROGRAM_NAME.match(program) and (USER_DIR / program / TRACE_FILE).exists():
+        return USER_DIR / program
+    if not known:
+        raise ArtifactMissingError("no program has been built yet; run 'make artifacts'")
+    raise KeyError(program)
 
 
 def get_program(art_dir: Path = ARTIFACTS_DIR, program: str = DEFAULT_PROGRAM) -> ProgramArtifact:

@@ -349,6 +349,23 @@ class ModuleView(Strict):
     )
 
 
+class UserProgramSource(Strict):
+    """POST /api/programs: a C program typed on the page (M5)."""
+
+    source: str = Field(
+        min_length=1,
+        max_length=2000,
+        description="C source in the supported subset; the pipeline also limits bytes and lines",
+    )
+
+
+class UserProgram(Strict):
+    """A user's program after it was built and checked like sum.c."""
+
+    program: str = Field(description="its name for every other endpoint's ?program=")
+    cached: bool = Field(description="true if this exact source had been built before")
+
+
 class Health(Strict):
     """Liveness answer."""
 
