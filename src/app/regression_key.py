@@ -163,4 +163,44 @@ PLANTS: tuple[Plant, ...] = (
             "runs those models over every cycle of sum.c."
         ),
     ),
+    Plant(
+        name="sra_wrong_on_small_negatives",
+        defect=(
+            "the arithmetic right shift fills with 0s when bits 31 and 30 are set and "
+            "the shift amount has bits 3 and 0 set (9, 11, 13, 15, 25, ...)"
+        ),
+        file="backend/rtl/shifter.sv",
+        old="shiftright asr (.a(a), .shamt(shamt), .fill(a[31]), .y(y_sra));",
+        new=(
+            "shiftright asr (.a(a), .shamt(shamt), "
+            ".fill(a[31] & ~(a[30] & shamt[3] & shamt[0])), .y(y_sra));"
+        ),
+        caught_at="spotcheck",
+        message="rv.dp.alu.sh.y_sra (shifter) is",
+        why=(
+            "tour.c's sra and srai shift by 1, 16 and 24 only, so Spike sees nothing, "
+            "and gate level and RTL agree on the wrong design. sum.c's operands never "
+            "have bits 31 and 30 both set, so the unit-model test over sum.c passes "
+            "too. But the shifter computes y_sra every cycle, and in tour.c's "
+            "'addi a4,a1,31' it sees a = -3 with 31 on its shift-amount input: only "
+            "the spot-check's shifter model, run over every cycle of every program, "
+            "sees the wrong value."
+        ),
+    ),
+    Plant(
+        name="bgeu_as_bge",
+        defect="the branch unit decides bgeu as a signed comparison (bge)",
+        file="backend/rtl/branchunit.sv",
+        old="3'b111:  taken = carry;         // bgeu",
+        new="3'b111:  taken = ~(neg ^ ovf);  // bgeu",
+        caught_at=None,
+        message="",
+        why=(
+            "A known blind spot: running every instruction is not testing every "
+            "case. tour.c's one bgeu compares 65534 with 253, both positive, where "
+            "signed and unsigned agree, so Spike sees the same branch; the branch "
+            "unit has no spot-check model. A program comparing a negative number "
+            "with a positive one, unsigned, would catch it."
+        ),
+    ),
 )
