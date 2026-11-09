@@ -470,6 +470,8 @@ Riskiest first. Each milestone ends with a check that can be run.
 | M4 | **Drill-down to gates.** Datapath → module (ALU, decoder, register file) → gates, with live values at the current cycle. | Every displayed bit matches the trace; spot-check script passes. |
 | M5 | *(Stretch)* **User-entered C** within a defined subset; rejected inputs give clear errors. | Test suite of accepted and rejected programs passes (`tests/test_user_programs.py`, `tests/test_rejections.py`). Done. |
 
+Each milestone has a progress log in `docs/` (`progress-m0-m1.md` to `progress-m5.md`). The work of 2026-11-08 (round 5, M5, the cycle explanations, round 6 and the image step) is summarized day-wide in [`docs/worklog-2026-11-08.md`](docs/worklog-2026-11-08.md).
+
 ## Top risks
 
 1. **Gate count and visual clutter.** Even a minimal RV32I core synthesizes to
