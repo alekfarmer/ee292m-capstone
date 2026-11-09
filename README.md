@@ -81,8 +81,9 @@ The page follows a C program cycle by cycle (`sum.c` unless you pick another):
   with their bits and meaning, and the register it writes.
 - **Hardware**: opens on the datapath, generated from the synthesized netlist,
   with every wire's value in this cycle (buses show their value; 1-bit wires
-  are coloured 1/0; wires that changed are highlighted). Click a block marked
-  ⤢ to open it: the ALU into its blocks, the ALU adder into its 160 gates
+  are coloured 1/0; wires that changed are highlighted in gold). *Fit to
+  width* or *fit to height* shrinks a wide or a tall view to the screen. Click
+  a block marked ⤢ to open it: the ALU into its blocks, the ALU adder into its 160 gates
   (textbook layout), and the decoders, muxes, PC register and immediate
   decoder into their gates. Hover any wire for its name and value.
 - **Stepping**: by cycle or by C line, a slider, play (1–5 cycles a second),
@@ -337,6 +338,14 @@ pushed back on):
 - The C source ran outside its box (`return sum;   // expected: 55 in a0`, in Chrome and VS Code): the C pane now scrolls like the assembly pane, so a long line scrolls sideways instead of wrapping, which would break the code's layout; `tests/test_page_layout.py` fails if any code pane is outside a scroll container (seen failing first).
 - A drawing of the repository's structure: "How the code is organized" now points to the annotated layout in ARCHITECTURE.md rather than keeping a second copy here that could drift.
 - Line endings on Windows still looked wrong, likely a stale checkout: `.gitattributes` keeps LF on every fresh checkout, and `tests/test_portability.py` names the cause if a checkout still has CRLF and says to clone again.
+
+Round 6 (the author, trying the app, 2026-11-08; all built in):
+
+- While playing, scrolling down to the datapath jumped back up every cycle: the page kept the current instruction in view with `scrollIntoView`, which also scrolls the window; it now scrolls the assembly pane only.
+- Tall blocks such as the result mux ran off the screen: *fit to height* next to *fit to width* (ticking one unticks the other).
+- The explanation panel jumped up and down with each cycle's text: it has one fixed height (about 7 lines), and a longer text scrolls inside it.
+- *Highlight changes* looked like bold on and off, though the key shows a gold bar: a changed wire had only a faint 1.2 px gold glow. It now has a 7 px gold band behind it, and its value a gold outline.
+- `tests/test_page_layout.py` gains one check for each (seen failing first). They read the page's files, so how it looks was checked by eye in `make screenshot`.
 
 ## Architecture and the backend/frontend boundary
 

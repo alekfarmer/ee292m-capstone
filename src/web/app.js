@@ -140,6 +140,21 @@ function selectLine(line) {
 
 // --- per-cycle panes ------------------------------------------------------------
 
+/**
+ * Scroll the asm pane, and only the asm pane, so that row is visible below the
+ * sticky header. (scrollIntoView would also scroll the window, pulling a reader
+ * who scrolled down to the datapath back up every cycle.)
+ */
+function keepInPane(row) {
+  const pane = els.asm.parentElement;
+  const head = els.asm.querySelector("th")?.offsetHeight ?? 0;
+  const top = row.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop;
+  if (top - head < pane.scrollTop) pane.scrollTop = top - head;
+  else if (top + row.offsetHeight > pane.scrollTop + pane.clientHeight) {
+    pane.scrollTop = top + row.offsetHeight - pane.clientHeight;
+  }
+}
+
 function renderCycle(cv) {
   els.slider.value = String(cv.cycle);
   els.cycleLabel.textContent = `cycle ${cv.cycle} / ${cv.cycles - 1}${cv.halt ? " · halt" : ""}`;
@@ -150,7 +165,7 @@ function renderCycle(cv) {
     const on = tr.dataset.index === String(cv.asm_index);
     tr.classList.toggle("current", on);
     tr.querySelector(".marker").textContent = on ? "▶" : "";
-    if (on) tr.scrollIntoView({ block: "nearest" });
+    if (on) keepInPane(tr);
   }
 
   const line = state.program.asm[cv.asm_index];
@@ -294,7 +309,20 @@ function wireControls() {
     }
   });
   els.slider.addEventListener("input", () => step(Number(els.slider.value)));
-  els.fit.addEventListener("change", () => els.view.classList.toggle("fit", els.fit.checked));
+  // Fit to width and fit to height are alternatives: ticking one unticks the other.
+  const fitHeight = $("fit-height");
+  const applyFit = () => {
+    els.view.classList.toggle("fit", els.fit.checked);
+    els.view.classList.toggle("fit-height", fitHeight.checked);
+  };
+  els.fit.addEventListener("change", () => {
+    if (els.fit.checked) fitHeight.checked = false;
+    applyFit();
+  });
+  fitHeight.addEventListener("change", () => {
+    if (fitHeight.checked) els.fit.checked = false;
+    applyFit();
+  });
   const changed = $("show-changed");
   changed.addEventListener("change", () => els.view.classList.toggle("no-changes", !changed.checked));
   document.addEventListener("keydown", (ev) => {

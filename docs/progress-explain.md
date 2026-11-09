@@ -90,3 +90,9 @@ Failures found while building it, each fixed in the explainer:
 - **The panel's collapsed state is not remembered** across reloads.
 - **Not tried at phone width,** and not read with a screen reader. The
   panel is marked `aria-live="polite"`.
+
+## Round 6: the author's feedback after trying it (2026-11-08)
+
+- **The panel jumped between cycles** because its height followed the text. It now has a fixed height of about 7 lines (`height: 10.5em`), and a longer explanation scrolls inside it. Hidden, it shrinks to one line as before.
+- The same round fixed three things outside the panel: the window jumping back up while playing, *fit to height* for tall blocks, and a gold highlight on changed wires that you can actually see. They are listed in the README's review log.
+- `tests/test_page_layout.py` checks each one, and was seen failing first.
