@@ -9,10 +9,11 @@ from app import pipeline
 
 @pytest.fixture(scope="session")
 def fresh_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Run every pipeline into a temporary directory and return it."""
+    """Run every pipeline, for every committed program, into a temporary directory."""
     root = tmp_path_factory.mktemp("fresh")
     out = root / "artifacts"
     pipeline.build_hardware_artifacts(out, root / "hw")
-    pipeline.build_program_artifacts(out_dir=out, work_dir=root / "sw")
-    pipeline.build_trace_artifacts(out, root / "trace")
+    for c_file in pipeline.committed_sources():
+        pipeline.build_program_artifacts(c_file, out, root / "sw")
+        pipeline.build_trace_artifacts(out, root / "trace", program=c_file.stem)
     return out

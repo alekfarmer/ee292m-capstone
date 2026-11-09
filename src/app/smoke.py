@@ -21,6 +21,62 @@ def fetch(base: str, path: str) -> object:
         return json.load(resp)
 
 
+def post(base: str, path: str, body: dict[str, str]) -> object:
+    """POST ``body`` as JSON to ``path`` and decode the JSON answer."""
+    request = urllib.request.Request(  # noqa: S310 - local URL
+        base + path,
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=60) as resp:  # noqa: S310 - local URL
+        return json.load(resp)
+
+
+# M5: a program typed on the page, and its result worked out by hand.
+USER_SOURCE = [
+    "int main(void) {",
+    "    int t = 0;",
+    "    for (int i = 4; i != 0; i--)",
+    "        t += i;",
+    "    return t;",
+    "}",
+]
+USER_A0 = 10  # 4 + 3 + 2 + 1
+
+
+def _check_user_program(base: str) -> list[str]:
+    """M5 end to end: build a typed program through the API, then open it on the page."""
+    built = post(base, "/api/programs", {"source": "\n".join(USER_SOURCE) + "\n"})
+    name = built.get("program") if isinstance(built, dict) else None
+    if not isinstance(name, str):
+        return [f"POST /api/programs gave {str(built)[:80]}"]
+    golden = fetch(base, f"/api/golden?program={name}")
+    a0 = golden.get("a0_at_halt") if isinstance(golden, dict) else None
+    problems = []
+    if a0 != f"0x{USER_A0:08x}":
+        problems.append(f"the typed program's a0 at halt is {a0}, expected {USER_A0}")
+    start = fetch(base, f"/api/start?program={name}")
+    if not isinstance(start, dict):
+        return [*problems, f"/api/start?program={name} gave {start}"]
+    opening = fetch(base, f"/api/cycle/{start['cycle']}?program={name}")
+    if not isinstance(opening, dict) or opening.get("c_line") is None:
+        return [*problems, f"the typed program's start cycle {start} is not on a line of C"]
+    problems.extend(
+        check_first_screen(
+            opening["cycle"],
+            opening["asm_index"],
+            opening["c_line"],
+            start["reason"],
+            base + "/",
+            fragment=f"#program={name}",
+            source=USER_SOURCE,
+            explanation=opening["explanation"]["what"],
+        )
+    )
+    return problems
+
+
 def check(base: str) -> tuple[list[str], str]:
     """Problems with the app at ``base`` (empty if none), and a summary of what was seen."""
     view = fetch(base, "/api/adder/5_plus_3")
@@ -52,15 +108,23 @@ def check(base: str) -> tuple[list[str], str]:
         return problems, ""
     problems.extend(
         check_first_screen(
-            opening["cycle"], opening["asm_index"], opening["c_line"], start["reason"], base + "/"
+            opening["cycle"],
+            opening["asm_index"],
+            opening["c_line"],
+            start["reason"],
+            base + "/",
+            explanation=opening["explanation"]["what"],
         )
     )
     problems.extend(_check_m4_views(base, opening["cycle"]))
+    problems.extend(_check_user_program(base))
     summary = (
         "5 + 3 = 0x00000008 on the gates, a0 = 55 in Spike and in the core's halt store, "
         f"{trace['cycles']}-cycle trace, page renders the datapath with pc = 0x80000000 "
         f"and opens on cycle {opening['cycle']} with its C line lit; a shifter stage "
-        "draws its gates and the register table matches the API"
+        "draws its gates and the register table matches the API, and the bottom panel "
+        "explains the cycle as the API does; a typed program "
+        f"builds through the API (a0 = {USER_A0}) and the page shows it"
     )
     return problems, summary
 

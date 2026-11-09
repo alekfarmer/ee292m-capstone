@@ -287,6 +287,10 @@ export async function drawModule(container, view, onOpen) {
     const laid = laidEdges.get(e.id);
     for (const s of laid?.sections || []) {
       const pts = [s.startPoint, ...(s.bendPoints || []), s.endPoint];
+      if (e.changed) {
+        // A wide gold line behind the wire: the legend's "changed this cycle".
+        wires.append(el("path", { class: "wire-halo", d: "M" + pts.map((p) => `${p.x},${p.y}`).join(" L") }));
+      }
       const path = el("path", {
         class: edgeClass(e),
         d: "M" + pts.map((p) => `${p.x},${p.y}`).join(" L"),

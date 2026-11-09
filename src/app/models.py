@@ -224,6 +224,24 @@ class RegisterWrite(Strict):
     value: Hex32
 
 
+ExplanationKind = Literal[
+    "alu", "alu_imm", "load", "store", "branch", "call", "jump", "return", "upper", "halt"
+]
+
+
+class Explanation(Strict):
+    """One cycle in plain words: what happened, where it comes from, what to look at."""
+
+    kind: ExplanationKind
+    what: str = Field(description="what the instruction did, with this cycle's values")
+    context: str = Field(description="the C line it belongs to, or why it has none")
+    look_for: str = Field(description="where to see it happen on the datapath")
+    blocks: list[str] = Field(description="datapath block ids that look_for names")
+    wires: list[str] = Field(description="trace signals of the datapath wires look_for names")
+    deeper: str | None = Field(description="a view to open for more detail, in words")
+    deeper_view: str | None = Field(description="that view's instance path")
+
+
 class CycleView(Strict):
     """Cycle ``n``: which instruction runs, and where stepping by C line goes."""
 
@@ -239,6 +257,7 @@ class CycleView(Strict):
     prev_line_cycle: int | None = Field(description="first cycle of the previous C-line run")
     next_line_cycle: int | None = Field(description="first cycle of the next C-line run")
     halt: bool
+    explanation: Explanation
 
 
 class StartCycle(Strict):
@@ -347,6 +366,23 @@ class ModuleView(Strict):
         default=None,
         description="the five stages in order, left to right (the datapath only)",
     )
+
+
+class UserProgramSource(Strict):
+    """POST /api/programs: a C program typed on the page (M5)."""
+
+    source: str = Field(
+        min_length=1,
+        max_length=2000,
+        description="C source in the supported subset; the pipeline also limits bytes and lines",
+    )
+
+
+class UserProgram(Strict):
+    """A user's program after it was built and checked like sum.c."""
+
+    program: str = Field(description="its name for every other endpoint's ?program=")
+    cached: bool = Field(description="true if this exact source had been built before")
 
 
 class Health(Strict):

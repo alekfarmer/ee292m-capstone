@@ -124,14 +124,12 @@ PLANTS: tuple[Plant, ...] = (
         file="backend/rtl/shifter.sv",
         old="shiftright asr (.a(a), .shamt(shamt), .fill(a[31]), .y(y_sra));",
         new="shiftright asr (.a(a), .shamt(shamt), .fill(1'b0), .y(y_sra));",
-        caught_at="spotcheck",
-        message="cycle 55 rv.dp.alu.sh.y_sra (shifter) is 0x8000, should be 0xffff8000",
+        caught_at="artifacts",
+        message="Spike writes x12=0xfffffffc, hardware we=1 x12=0x7ffffffc",
         why=(
-            "sum.c never runs an sra instruction, so Spike, which compares only pc, "
-            "instruction and register writes, sees nothing, and gate level and RTL agree "
-            "on the wrong design. But the shifter computes y_sra every cycle, and the "
-            "spot-check's model of the shifter says 0x80000020 >> 16 is 0xffff8000. "
-            "(A blind spot until M4.)"
+            "sum.c never runs sra, but tour.c does (-8 >> 1), so Spike sees the wrong "
+            "register write while the artifacts are built. Before tour.c (M5) only the "
+            "spot-check's shifter model caught this; before M4, nothing did."
         ),
     ),
     Plant(
@@ -140,13 +138,109 @@ PLANTS: tuple[Plant, ...] = (
         file="backend/rtl/aludec.sv",
         old="3'b011:  alucontrol = 4'b0110;",
         new="3'b011:  alucontrol = 4'b0101;",
+        caught_at="artifacts",
+        message="Spike writes x12=0x00000000, hardware we=1 x12=0x00000001",
+        why=(
+            "The decoders have no spot-check model, so this was a known blind spot "
+            "until M5: sum.c never runs sltu. tour.c runs it on 0xfffffff8 < 65534, "
+            "where unsigned (0) and signed (1) differ, so Spike catches it."
+        ),
+    ),
+    Plant(
+        name="sh_upper_half_as_lower",
+        defect="a halfword store to bytes 2-3 of a word enables bytes 0-1 instead",
+        file="backend/rtl/storealign.sv",
+        old="2'b01:   byteen = offset[1] ? 4'b1100 : 4'b0011;",
+        new="2'b01:   byteen = offset[1] ? 4'b0011 : 4'b0011;",
+        caught_at="tests",
+        message="rv.dp.lsu.byteen (lsu) is 0x3, should be 0xc",
+        why=(
+            "No committed program stores a halfword to bytes 2-3, so no wrong value "
+            "reaches memory or a register: Spike sees nothing, and gate level and RTL "
+            "agree on the wrong design. But the LSU computes byteen every cycle, and "
+            "the spot-check's model, from the RV32I specification, disagrees in a "
+            "cycle whose inputs look like a halfword at offset 3 (an lhu); make test "
+            "runs those models over every cycle of sum.c."
+        ),
+    ),
+    Plant(
+        name="sra_wrong_on_small_negatives",
+        defect=(
+            "the arithmetic right shift fills with 0s when bits 31 and 30 are set and "
+            "the shift amount has bits 3 and 0 set (9, 11, 13, 15, 25, ...)"
+        ),
+        file="backend/rtl/shifter.sv",
+        old="shiftright asr (.a(a), .shamt(shamt), .fill(a[31]), .y(y_sra));",
+        new=(
+            "shiftright asr (.a(a), .shamt(shamt), "
+            ".fill(a[31] & ~(a[30] & shamt[3] & shamt[0])), .y(y_sra));"
+        ),
+        caught_at="spotcheck",
+        message="rv.dp.alu.sh.y_sra (shifter) is",
+        why=(
+            "tour.c's sra and srai shift by 1, 16 and 24 only, so Spike sees nothing, "
+            "and gate level and RTL agree on the wrong design. sum.c's operands never "
+            "have bits 31 and 30 both set, so the unit-model test over sum.c passes "
+            "too. But the shifter computes y_sra every cycle, and in tour.c's "
+            "'addi a4,a1,31' it sees a = -3 with 31 on its shift-amount input: only "
+            "the spot-check's shifter model, run over every cycle of every program, "
+            "sees the wrong value."
+        ),
+    ),
+    Plant(
+        name="typed_program_not_opened",
+        defect="the page ignores #program= and always opens sum.c",
+        file="src/web/app.js",
+        old='      hash.get("program") || DEFAULT_PROGRAM,',
+        new="      DEFAULT_PROGRAM,",
+        caught_at="smoke",
+        message="not the program's source",
+        why=(
+            "The backend builds and serves the typed program correctly, so artifacts, "
+            "tests and the spot-check pass; only the smoke check, which builds one "
+            "through the API and opens it on the page, sees sum.c instead."
+        ),
+    ),
+    Plant(
+        name="explanation_branch_backwards",
+        defect="the cycle explanation says a branch is taken when it is not, and the reverse",
+        file="src/app/views/explain.py",
+        old="taken = c.pcnext != c.pc + 4",
+        new="taken = c.pcnext == c.pc + 4",
+        caught_at="tests",
+        message="FAILED tests/test_explain.py::test_the_numbers_are_the_ones_spike_says",
+        why=(
+            "The hardware and every drawn value are right, so artifacts pass; the "
+            "explanation test works out each branch's outcome from Spike's next pc."
+        ),
+    ),
+    Plant(
+        name="explanation_not_drawn",
+        defect="the page never fills in the explanation panel",
+        file="src/web/app.js",
+        old="    renderExplanation(cv.explanation);\n",
+        new="",
+        caught_at="smoke",
+        message="the explanation panel says",
+        why=(
+            "The API's explanations are right, so artifacts, tests and the spot-check "
+            "pass; only the smoke check reads the panel off the rendered page."
+        ),
+    ),
+    Plant(
+        name="bgeu_as_bge",
+        defect="the branch unit decides bgeu as a signed comparison (bge)",
+        file="backend/rtl/branchunit.sv",
+        old="3'b111:  taken = carry;         // bgeu",
+        new="3'b111:  taken = ~(neg ^ ovf);  // bgeu",
         caught_at=None,
         message="",
         why=(
-            "A known blind spot. sum.c never runs sltu or sltiu, so Spike sees nothing, "
-            "and gate level and RTL agree on the wrong design. The spot-check models "
-            "the datapath units, not the decoders: the ALU does exactly what the wrong "
-            "alucontrol asks. Programs that run every instruction come with M5."
+            "A known blind spot: running every instruction is not testing every "
+            "case. tour.c's one bgeu compares 65534 with 253, both positive, where "
+            "signed and unsigned agree, so Spike sees the same branch; the branch "
+            "unit has no spot-check model. A program comparing a negative number "
+            "with a positive one, unsigned, would catch it."
         ),
     ),
 )

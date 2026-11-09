@@ -8,6 +8,7 @@ RTL_DIR = BACKEND / "rtl"
 PROGRAMS_DIR = BACKEND / "programs"
 ARTIFACTS_DIR = BACKEND / "artifacts"
 BUILD_DIR = BACKEND / "build"  # scratch space, gitignored
+USER_DIR = BUILD_DIR / "user"  # programs entered on the page (M5), built live
 WEB_DIR = REPO_ROOT / "src" / "web"
 VENDOR_DIR = Path("/opt/vendor")  # frontend libraries, installed in the image
 
