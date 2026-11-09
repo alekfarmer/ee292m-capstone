@@ -45,19 +45,21 @@ Apple silicon) machines; the image is built natively for yours. On Windows,
 see [Windows](#windows) first.
 
 ```sh
-make pull       # first time: a few minutes (downloads the image CI built and verified)
-make build      # or build it yourself: ~15-25 min (Yosys and Spike from source)
 make up         # http://127.0.0.1:8000  (port: APP_PORT in .env, see .env.example)
 make down
-make verify     # the gate: build, lint, tests, spot-check, smoke check
+make verify     # the gate: lint, tests, spot-check, smoke check
 make help       # every target
 ```
 
-`make pull` needs no account. It takes only the image CI built from this
-checkout's `docker/` files (the tag is a fingerprint of them). If there is
-none, because you changed `docker/` or CI has not published one yet, it says
-so and `make build` builds it. `make build` skips the build when the image
-there already matches. Images with the same tag come from the same `docker/`
+The first `make up` or `make verify` gets the image by itself, and later
+runs reuse it. It downloads the image CI built and verified from this
+checkout's `docker/` files (the tag is a fingerprint of them), which takes a
+few minutes and needs no account. If none is published, because you changed
+`docker/` or CI has not published one yet, it says so and builds the image
+instead (about 15-25 minutes; Yosys and Spike from source). Every target that
+uses the container does this first. To do one on purpose, `make pull`
+downloads and `make build` builds; `make build` skips the build when the
+image there already matches. Images with the same tag come from the same `docker/`
 files, but not necessarily identical bytes: the base images are pinned by
 digest, but some Debian packages are taken at their current version when the
 image is built.
@@ -467,6 +469,8 @@ Riskiest first. Each milestone ends with a check that can be run.
 | M3 | **Linked layer views.** C, asm, hex, and datapath panes; stepping highlights the active line and active datapath wires in all panes. | Clicking a C line highlights its asm lines (via DWARF line info) and vice versa. |
 | M4 | **Drill-down to gates.** Datapath → module (ALU, decoder, register file) → gates, with live values at the current cycle. | Every displayed bit matches the trace; spot-check script passes. |
 | M5 | *(Stretch)* **User-entered C** within a defined subset; rejected inputs give clear errors. | Test suite of accepted and rejected programs passes (`tests/test_user_programs.py`, `tests/test_rejections.py`). Done. |
+
+Each milestone has a progress log in `docs/` (`progress-m0-m1.md` to `progress-m5.md`). The work of 2026-11-08 (round 5, M5, the cycle explanations, round 6 and the image step) is summarized day-wide in [`docs/worklog-2026-11-08.md`](docs/worklog-2026-11-08.md).
 
 ## Top risks
 
