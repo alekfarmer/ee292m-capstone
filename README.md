@@ -344,7 +344,7 @@ Round 6 (the author, trying the app, 2026-11-08; all built in):
 - While playing, scrolling down to the datapath jumped back up every cycle: the page kept the current instruction in view with `scrollIntoView`, which also scrolls the window; it now scrolls the assembly pane only.
 - Tall blocks such as the result mux ran off the screen: *fit to height* next to *fit to width* (ticking one unticks the other).
 - The explanation panel jumped up and down with each cycle's text: it has one fixed height (about 7 lines), and a longer text scrolls inside it.
-- *Highlight changes* looked like bold on and off, though the key shows a gold bar: a changed wire had only a faint 1.2 px gold glow. It now has a 7 px gold band behind it, and its value a gold outline.
+- *Highlight changes* looked like bold on and off, though the key shows a gold bar: a changed wire had only a faint 1.2 px gold glow. It now has a 7 px gold band behind it; its value stays plain bold text, since a gold outline made the numbers hard to read.
 - `tests/test_page_layout.py` gains one check for each (seen failing first). They read the page's files, so how it looks was checked by eye in `make screenshot`.
 
 ## Architecture and the backend/frontend boundary

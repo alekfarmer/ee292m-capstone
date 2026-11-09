@@ -183,10 +183,10 @@ svg.netview .wire.zero { stroke: var(--zero); }
 svg.netview .wire.bus { stroke: var(--bus); stroke-width: 2.6; }
 svg.netview .wire-halo { fill: none; stroke: var(--changed); stroke-width: 7; stroke-linejoin: round; stroke-linecap: round; opacity: 0.75; }
 .view.no-changes svg.netview .wire-halo { display: none; }
-.view.no-changes svg.netview .wire-value.changed { font-weight: normal; stroke: none; }
+.view.no-changes svg.netview .wire-value.changed { font-weight: normal; }
 svg.netview .wire.const { stroke-dasharray: 3 2; }
 svg.netview .wire-value { font-size: 10px; fill: var(--bus); }
-svg.netview .wire-value.changed { fill: var(--fg); font-weight: 700; stroke: var(--changed); stroke-width: 3px; paint-order: stroke; stroke-linejoin: round; }
+svg.netview .wire-value.changed { fill: var(--fg); font-weight: 700; }
 svg.netview .box { fill: var(--panel); stroke: var(--gate-line); stroke-width: 1.2; }
 svg.netview .block .box, svg.netview .glue .box { fill: var(--bg); }
 svg.netview .glue .box { stroke-dasharray: 4 3; }
