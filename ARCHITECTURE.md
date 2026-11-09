@@ -234,7 +234,10 @@ Named in README ("How the code is organized") and enforced by
   compile Yosys and Spike from pinned sources. The final image holds the
   RISC-V GCC and binutils packages, the Python dependencies from `uv.lock`,
   the frontend files from the third stage, and the Yosys and Spike installs.
-  The first `make build` takes a while (Yosys is a large C++ build).
+  The first `make build` takes a while (Yosys is a large C++ build). The
+  Makefile's `image` target, which every container target depends on, keeps
+  an image whose `ee292m.image-tag` label matches the fingerprint of
+  `docker/`, else runs `make pull`, else `make build`.
 - The image never copies `src/`. The repository is mounted at `/work`, with
   `PYTHONPATH=/work/src`.
 - Frontend libraries are installed at build time from `package-lock.json` and

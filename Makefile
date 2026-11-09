@@ -52,11 +52,13 @@ BODY ?=
 LOCK_HINT := A manifest and its lock may disagree. After changing docker/pyproject.toml \
 or docker/package.json, run 'make lock' and commit each manifest with its lock.
 
-.PHONY: help build up down verify clean test lint fmt smoke spot-check logs shell lock artifacts synth-log preview screenshot regression pr pr-body \
+.PHONY: help image build up down verify clean test lint fmt smoke spot-check logs shell lock artifacts synth-log preview screenshot regression pr pr-body \
 	pull publish publish-manifest base-digests
 
 help: ## List the targets
 	@echo "Everyday:"
+	@echo "  (Every target that uses the container first gets its image: kept if it matches docker/,"
+	@echo "   else downloaded, else built. pull and build do one of those on purpose.)"
 	@echo "  pull       Download the prebuilt image for this checkout (minutes; instead of build)"
 	@echo "  build      Build the image (all tools, pinned; skipped if it already matches docker/)"
 	@echo "  up / down  Start / stop the app on http://127.0.0.1:$${APP_PORT:-8000}"
@@ -91,6 +93,15 @@ pull: ## Download the prebuilt image that matches docker/ (tag IMAGE_TAG)
 	  exit 1; }
 	docker tag $(IMAGE_REPO):$(IMAGE_TAG) $(IMAGE)
 
+image: ## Make sure this checkout has its image: keep it, else download it, else build it
+	$(CHECK_TAG)
+	@if [ "$$(docker image inspect --format '{{index .Config.Labels "ee292m.image-tag"}}' $(IMAGE) 2>/dev/null)" != "$(IMAGE_TAG)" ]; then \
+	  echo "image: no image here for this checkout's docker/ ($(IMAGE_TAG)); downloading it (make pull, a few minutes)"; \
+	  $(MAKE) --no-print-directory pull || { \
+	    echo "image: none published for this docker/; building it instead (make build, about 15-25 minutes)"; \
+	    $(MAKE) --no-print-directory build; }; \
+	fi
+
 build: ## Build the image, unless the one there already matches docker/
 	$(CHECK_TAG)
 	@if [ "$$(docker image inspect --format '{{index .Config.Labels "ee292m.image-tag"}}' $(IMAGE) 2>/dev/null)" = "$(IMAGE_TAG)" ]; then \
@@ -99,14 +110,14 @@ build: ## Build the image, unless the one there already matches docker/
 	  $(COMPOSE) build app || { echo; echo "$(LOCK_HINT)"; exit 1; }; \
 	fi
 
-up: ## Start the app
+up: image ## Start the app
 	$(COMPOSE) up -d --wait app
 	@echo "App running on http://127.0.0.1:$${APP_PORT:-8000}"
 
 down: ## Stop the app
 	$(COMPOSE) down
 
-verify: build lint test spot-check smoke ## The gate
+verify: image lint test spot-check smoke ## The gate
 	@echo "verify: all green"
 
 clean: ## Back to a fresh clone (keeps .env and committed artifacts)
@@ -114,44 +125,44 @@ clean: ## Back to a fresh clone (keeps .env and committed artifacts)
 	rm -rf backend/build .pytest_cache .ruff_cache .mypy_cache
 	find src tests -name __pycache__ -type d -prune -exec rm -rf {} +
 
-artifacts: ## Regenerate backend/artifacts/
+artifacts: image ## Regenerate backend/artifacts/
 	$(RUN) python -m app.cli artifacts
 
-preview: ## Write the adder SVGs for viewing outside the app
+preview: image ## Write the adder SVGs for viewing outside the app
 	$(RUN) python -m app.cli preview
 
-screenshot: ## Screenshots of the running page (headless Chromium in the container)
+screenshot: image ## Screenshots of the running page (headless Chromium in the container)
 	$(COMPOSE) up -d --wait app
 	@$(COMPOSE) exec -T app python -m app.pagecheck screenshot; status=$$?; $(COMPOSE) down; exit $$status
 
-synth-log: ## Synthesis with the full Yosys log, for debugging
+synth-log: image ## Synthesis with the full Yosys log, for debugging
 	@mkdir -p backend/build
 	$(RUN) yosys -l backend/build/synth.log -p "script backend/rtl/synth.ys; write_json backend/build/netlist.json" > /dev/null
 	@echo "log: backend/build/synth.log"
 
-test: ## Run the tests
+test: image ## Run the tests
 	$(RUN) pytest $(ARGS)
 
-lint: ## Check the code
+lint: image ## Check the code
 	$(RUN) sh -c 'ruff check src tests && ruff format --check src tests && mypy src tests'
 
-fmt: ## Format the code
+fmt: image ## Format the code
 	$(RUN) sh -c 'ruff format src tests && ruff check --fix src tests'
 
-regression: ## Planted defects caught as the answer key says (src/app/regression_key.py)
+regression: image ## Planted defects caught as the answer key says (src/app/regression_key.py)
 	$(RUN) python -m app.regression $(PLANT)
 
-spot-check: ## Every drawn bit of every view in every cycle, and every unit against a model
+spot-check: image ## Every drawn bit of every view in every cycle, and every unit against a model
 	$(RUN) python -m app.spotcheck
 
-smoke: ## Start the app, check a real result, stop it
+smoke: image ## Start the app, check a real result, stop it
 	$(COMPOSE) up -d --wait app
 	@$(COMPOSE) exec -T app python -m app.smoke; status=$$?; $(COMPOSE) down; exit $$status
 
 logs: ## Follow the app's output
 	$(COMPOSE) logs -f app
 
-shell: ## Shell inside the container
+shell: image ## Shell inside the container
 	$(RUN) bash
 
 lock: ## Record exact dependency versions
