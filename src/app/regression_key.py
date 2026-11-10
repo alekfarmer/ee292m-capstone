@@ -228,19 +228,60 @@ PLANTS: tuple[Plant, ...] = (
         ),
     ),
     Plant(
+        name="stepping_scrolls_the_window",
+        defect="following the current instruction scrolls the window too (scrollIntoView)",
+        file="src/web/app.js",
+        old="    if (on) keepInPane(tr);",
+        new='    if (on) tr.scrollIntoView({ block: "nearest" });',
+        caught_at="smoke",
+        message="stepping five cycles scrolled the window",
+        why=(
+            "Every value on the page is still right; only a browser that scrolls "
+            "down, steps and reads the window's position sees it (round 6)."
+        ),
+    ),
+    Plant(
+        name="build_and_run_shows_the_old_program",
+        defect="after build and run, the page reloads the program it was showing",
+        file="src/web/app.js",
+        old="    await load(built.program);",
+        new="    await load(state.programName);",
+        caught_at="smoke",
+        message="the typed program to be built and drawn",
+        why=(
+            "The backend builds the typed program and serves it, so the API checks "
+            "pass; only pressing build and run in a browser shows the wrong program."
+        ),
+    ),
+    Plant(
         name="bgeu_as_bge",
         defect="the branch unit decides bgeu as a signed comparison (bge)",
         file="backend/rtl/branchunit.sv",
         old="3'b111:  taken = carry;         // bgeu",
         new="3'b111:  taken = ~(neg ^ ovf);  // bgeu",
+        caught_at="artifacts",
+        message="hardware is at pc=",
+        why=(
+            "A blind spot until 2026-11-10: tour.c's first bgeu compares 65534 with "
+            "253, both positive, where signed and unsigned agree. Its second compares "
+            "0xfffffff8 with 253: bgeu jumps over the body, bge (-8 >= 253) does not, "
+            "so the hardware's next pc differs from Spike's (the branch unit has no "
+            "spot-check model)."
+        ),
+    ),
+    Plant(
+        name="unknown_opcode_writes_memory",
+        defect="the main decoder executes an unknown opcode as a memory write",
+        file="backend/rtl/maindec.sv",
+        old="            default: ;",
+        new="            default: memwrite = 1'b1;",
         caught_at=None,
         message="",
         why=(
-            "A known blind spot: running every instruction is not testing every "
-            "case. tour.c's one bgeu compares 65534 with 253, both positive, where "
-            "signed and unsigned agree, so Spike sees the same branch; the branch "
-            "unit has no spot-check model. A program comparing a negative number "
-            "with a positive one, unsigned, would catch it."
+            "A known blind spot: no compiled program runs an unknown opcode (crt0 "
+            "has no fence or ecall either), so every cycle decodes a real "
+            "instruction; the decoders have no spot-check model, and Spike would "
+            "trap on an illegal instruction rather than run it."
         ),
     ),
 )

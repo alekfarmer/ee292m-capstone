@@ -4,12 +4,24 @@ import argparse
 import json
 import sys
 import urllib.request
+from collections.abc import Callable
+from functools import partial
 
+from app.errors import ToolError
 from app.pagecheck import (
     check_first_screen,
     check_gate_view,
     check_register_table,
     check_rendered_page,
+)
+from app.pagedrive import (
+    Browser,
+    check_changed_wires_are_gold,
+    check_code_panes_scroll,
+    check_editor,
+    check_explanation_keeps_one_height,
+    check_fit_to_height,
+    check_stepping_keeps_the_window_still,
 )
 
 DEFAULT_PORT = 8000
@@ -118,15 +130,51 @@ def check(base: str) -> tuple[list[str], str]:
     )
     problems.extend(_check_m4_views(base, opening["cycle"]))
     problems.extend(_check_user_program(base))
+    problems.extend(_check_driven_page(base))
     summary = (
         "5 + 3 = 0x00000008 on the gates, a0 = 55 in Spike and in the core's halt store, "
         f"{trace['cycles']}-cycle trace, page renders the datapath with pc = 0x80000000 "
         f"and opens on cycle {opening['cycle']} with its C line lit; a shifter stage "
         "draws its gates and the register table matches the API, and the bottom panel "
         "explains the cycle as the API does; a typed program "
-        f"builds through the API (a0 = {USER_A0}) and the page shows it"
+        f"builds through the API (a0 = {USER_A0}) and the page shows it; in a driven "
+        "browser the C pane scrolls, stepping keeps the window still, fit to height fits, "
+        "the explanation keeps one height, changed wires are gold, and build and run "
+        "shows a typed program and keeps it when the next is rejected"
     )
     return problems, summary
+
+
+# A program the backend refuses (RV32I has no multiply), typed into the editor.
+REJECTED_SOURCE = "int main(void) {\n    int a = 3;\n    return a * 4;\n}\n"
+
+
+def _check_driven_page(base: str) -> list[str]:
+    """The page measured and clicked in a real browser: layout (rounds 5, 6) and the editor."""
+    # A different source from USER_SOURCE, so the build really runs from the form.
+    typed = [*USER_SOURCE[:2], "    for (int i = 5; i != 0; i--)", *USER_SOURCE[3:]]
+    editor = partial(
+        check_editor,
+        source="\n".join(typed) + "\n",
+        a0_line=typed[2].strip(),
+        rejected=REJECTED_SOURCE,
+    )
+    checks: list[tuple[str, Callable[[Browser], list[str]]]] = [
+        ("code panes", check_code_panes_scroll),
+        ("stepping", check_stepping_keeps_the_window_still),
+        ("fit to height", check_fit_to_height),
+        ("explanation height", check_explanation_keeps_one_height),
+        ("changed wires", check_changed_wires_are_gold),
+        ("editor", editor),
+    ]
+    problems: list[str] = []
+    with Browser(base + "/") as page:
+        for name, driven in checks:
+            try:
+                problems.extend(driven(page))
+            except ToolError as exc:  # a wait that ran out is a failed check, not a crash
+                problems.append(f"{name}: {exc}")
+    return problems
 
 
 def _check_m4_views(base: str, cycle: int) -> list[str]:

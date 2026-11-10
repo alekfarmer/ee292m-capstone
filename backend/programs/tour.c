@@ -44,6 +44,8 @@ int main(void) {
         r += 100;
     if (b >= a)
         r += 200;
+    if (u < b)                           // bgeu around the body: 0xfffffff8 >= 253
+        r += 500;                        // unsigned, so skipped (bge: -8 < 253, not skipped)
     if (h == c)                          // beq or bne
         r += 300;
     if (h != c + 1)

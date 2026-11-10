@@ -36,6 +36,11 @@ export IMAGE_TAG
 # Stops a recipe when docker/ cannot be fingerprinted, rather than tagging with ''.
 CHECK_TAG = @if [ -n "$(IMAGE_MISSING)" ] || [ -z "$(IMAGE_TAG)" ]; then \
   echo "Cannot fingerprint docker/ (missing: $(or $(IMAGE_MISSING),none); is git installed?)"; exit 1; fi
+# Stops a recipe when Docker is not running, before a pull or build would fail
+# for that reason and be taken for a missing image or a stale lock.
+CHECK_DOCKER = @docker info >/dev/null 2>&1 || { \
+  echo "Docker is not running (or not installed): 'docker info' failed."; \
+  echo "Start Docker Desktop, or the docker service, and run make again."; exit 1; }
 
 COMPOSE := docker compose -f docker/compose.yaml
 RUN     := $(COMPOSE) run --rm --no-deps app
@@ -87,6 +92,7 @@ help: ## List the targets
 
 pull: ## Download the prebuilt image that matches docker/ (tag IMAGE_TAG)
 	$(CHECK_TAG)
+	$(CHECK_DOCKER)
 	@docker pull $(IMAGE_REPO):$(IMAGE_TAG) || { echo; \
 	  echo "Could not pull $(IMAGE_REPO):$(IMAGE_TAG); docker's reason is above."; \
 	  echo "If the image is not found, none is published for this checkout's docker/ (yet, or you changed it): run 'make build'."; \
@@ -95,6 +101,7 @@ pull: ## Download the prebuilt image that matches docker/ (tag IMAGE_TAG)
 
 image: ## Make sure this checkout has its image: keep it, else download it, else build it
 	$(CHECK_TAG)
+	$(CHECK_DOCKER)
 	@if [ "$$(docker image inspect --format '{{index .Config.Labels "ee292m.image-tag"}}' $(IMAGE) 2>/dev/null)" != "$(IMAGE_TAG)" ]; then \
 	  echo "image: no image here for this checkout's docker/ ($(IMAGE_TAG)); downloading it (make pull, a few minutes)"; \
 	  $(MAKE) --no-print-directory pull || { \
@@ -104,6 +111,7 @@ image: ## Make sure this checkout has its image: keep it, else download it, else
 
 build: ## Build the image, unless the one there already matches docker/
 	$(CHECK_TAG)
+	$(CHECK_DOCKER)
 	@if [ "$$(docker image inspect --format '{{index .Config.Labels "ee292m.image-tag"}}' $(IMAGE) 2>/dev/null)" = "$(IMAGE_TAG)" ]; then \
 	  echo "build: the image already matches docker/ ($(IMAGE_TAG))"; \
 	else \

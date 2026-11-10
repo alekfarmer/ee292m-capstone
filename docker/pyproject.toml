@@ -14,6 +14,7 @@ dev = [
     "mypy>=1.13",
     "pytest>=8.3",
     "ruff>=0.8",
+    "websockets>=15",   # drive headless Chromium over DevTools in make smoke
 ]
 
 [tool.uv]

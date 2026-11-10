@@ -259,6 +259,8 @@ async function show(cycle, path = state.viewPath) {
     renderExplanation(cv.explanation);
     renderCrumbs(view);
     await drawModule(els.view, view, openView);
+    // Says what is on screen, once it is drawn (the smoke check waits for it).
+    if (ticket === state.request) els.view.dataset.drawn = `${state.programName}:${cycle}:${path}`;
   } catch (err) {
     if (ticket === state.request) showError(err.message);
   }

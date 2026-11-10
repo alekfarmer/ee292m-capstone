@@ -54,7 +54,15 @@ simulation), M3 (linked, steppable views), M4 (drill-down to gates) and M5
   for `make smoke` and `make screenshot`. Debian's security updates delete old
   Chromium builds from the archive, so it is pinned to an exact build through
   snapshot.debian.org (`CHROMIUM_VERSION` and `CHROMIUM_SNAPSHOT` in the
-  Dockerfile).
+  Dockerfile). `pagecheck.py` reads its DOM dump; `pagedrive.py` drives it
+  over the DevTools protocol (127.0.0.1 inside the container) to measure
+  boxes, scroll and press buttons. That needs a websocket client, so the dev
+  group has `websockets` (the standard library has none; Playwright would
+  bring its own browsers). The page marks `#view` with
+  `data-drawn="program:cycle:view"` once a view is drawn, so the checks wait
+  for the page, not for a fixed time.
+- `make` is in the image too, only so `tests/test_makefile.py` can run the
+  real Makefile against a stand-in `docker`.
 - Hardware and software tools, all pinned in `docker/Dockerfile`: Yosys
   (built from a release tag), Spike (built from a commit), and Debian's
   `gcc-riscv64-unknown-elf`, `binutils-riscv64-unknown-elf` and `iverilog`
@@ -87,7 +95,8 @@ src/app/             the backend: api.py (routes only), pipeline.py (entry
                      cycle.py, module.py, registers.py, explain.py:
                      per-cycle and module views, and each cycle in plain
                      words), render.py (adder SVG), tools.py,
-                     errors.py, paths.py, pagecheck.py (headless Chromium),
+                     errors.py, paths.py, pagecheck.py (headless Chromium's
+                     DOM), pagedrive.py (Chromium driven over DevTools),
                      cli.py (`make artifacts`), smoke.py (`make smoke`),
                      spotcheck.py (`make spot-check`),
                      regression.py and regression_key.py (`make regression`)
@@ -222,7 +231,7 @@ Named in README ("How the code is organized") and enforced by
   only it plus `models`, `errors` and `paths`.
 - The steps (`software`, `hardware`, `simulate`, `views`, `render`, `decode`,
   `vcd`, `tools`) never import the facade, the adapters or the checks.
-  The checks (`smoke`, `pagecheck`, `spotcheck`, `regression`) are adapters too.
+  The checks (`smoke`, `pagecheck`, `pagedrive`, `spotcheck`, `regression`) are adapters too.
 - Only `tools.py` starts external programs (`run_tool`, `ToolStream`).
 - The page fetches through one helper (`getJson`, which also sends the one POST), and only from `/api/`.
 
@@ -261,7 +270,10 @@ Named in README ("How the code is organized") and enforced by
 
 `make help` (the default) lists every target in four groups.
 
-Everyday, the only ones a user needs:
+Everyday, the only ones a user needs. Every container target first runs
+`image` (keep the image, else `pull`, else `build`), and `image`, `pull` and
+`build` first check `docker info`: with Docker stopped they say so and stop,
+rather than taking it for a missing image (`tests/test_makefile.py`).
 
 - `pull`: download the image CI built and verified for this checkout
   (`ghcr.io/alekfarmer/ee292m-capstone:<tag>`; set `IMAGE_REPO` to use
@@ -297,7 +309,10 @@ While developing:
 - `spot-check`: check every drawn bit of every view in every cycle, and every
   datapath unit against an independent model (about 18 seconds for the two committed programs).
 - `smoke`: start the app, check a real API result (not just a status code),
-  stop it again.
+  then the rendered page: its DOM, and in a driven browser its layout (code
+  panes scroll, stepping keeps the window still, fit to height, the
+  explanation's height, the changed-wire band) and the editor's build and
+  run. Stop it again.
 - `regression`: plant each defect in the answer key and check that the stage
   the key names catches it (`PLANT=name` for one), in about a minute.
 - `logs` and `shell`: follow the app's output; open a shell inside the

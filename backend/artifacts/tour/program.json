@@ -187,50 +187,58 @@
     },
     {
       "line": 47,
-      "text": "    if (h == c)                          // beq or bne"
+      "text": "    if (u < b)                           // bgeu around the body: 0xfffffff8 >= 253"
     },
     {
       "line": 48,
-      "text": "        r += 300;"
+      "text": "        r += 500;                        // unsigned, so skipped (bge: -8 < 253, not skipped)"
     },
     {
       "line": 49,
-      "text": "    if (h != c + 1)"
+      "text": "    if (h == c)                          // beq or bne"
     },
     {
       "line": 50,
-      "text": "        r += 400;"
+      "text": "        r += 300;"
     },
     {
       "line": 51,
-      "text": "    for (int i = c; i != 0; i++)         // bne: the loop goes back while i != 0"
+      "text": "    if (h != c + 1)"
     },
     {
       "line": 52,
-      "text": "        r += i;                          // -3, -2, -1"
+      "text": "        r += 400;"
     },
     {
       "line": 53,
-      "text": ""
+      "text": "    for (int i = c; i != 0; i++)         // bne: the loop goes back while i != 0"
     },
     {
       "line": 54,
-      "text": "    word = r;                            // sw"
+      "text": "        r += i;                          // -3, -2, -1"
     },
     {
       "line": 55,
-      "text": "    half = (short)r;                     // sh"
+      "text": ""
     },
     {
       "line": 56,
-      "text": "    byte = (signed char)r;               // sb"
+      "text": "    word = r;                            // sw"
     },
     {
       "line": 57,
-      "text": "    return r + smaller(h, c) + word + half + byte;   // expected: 157845 in a0"
+      "text": "    half = (short)r;                     // sh"
     },
     {
       "line": 58,
+      "text": "    byte = (signed char)r;               // sb"
+    },
+    {
+      "line": 59,
+      "text": "    return r + smaller(h, c) + word + half + byte;   // expected: 157845 in a0"
+    },
+    {
+      "line": 60,
       "text": "}"
     }
   ],
@@ -625,8 +633,8 @@
     },
     {
       "addr": "0x80000024",
-      "hex": "0x1f828293",
-      "text": "addi t0,t0,504 # 80000218 <tohost>",
+      "hex": "0x20028293",
+      "text": "addi t0,t0,512 # 80000220 <tohost>",
       "function": "_start",
       "c_line": null,
       "format": "I",
@@ -636,8 +644,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "000111111000",
-          "meaning": "immediate = 504"
+          "bits": "001000000000",
+          "meaning": "immediate = 512"
         },
         {
           "name": "rs1",
@@ -668,7 +676,7 @@
           "meaning": "opcode = OP-IMM: register-immediate ALU"
         }
       ],
-      "immediate": 504
+      "immediate": 512
     },
     {
       "addr": "0x80000028",
@@ -1257,8 +1265,8 @@
     },
     {
       "addr": "0x80000058",
-      "hex": "0x2147a783",
-      "text": "lw a5,532(a5) # 80000214 <word>",
+      "hex": "0x21c7a783",
+      "text": "lw a5,540(a5) # 8000021c <word>",
       "function": "main",
       "c_line": 20,
       "format": "I",
@@ -1268,8 +1276,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000010100",
-          "meaning": "immediate = 532"
+          "bits": "001000011100",
+          "meaning": "immediate = 540"
         },
         {
           "name": "rs1",
@@ -1300,7 +1308,7 @@
           "meaning": "opcode = LOAD"
         }
       ],
-      "immediate": 532
+      "immediate": 540
     },
     {
       "addr": "0x8000005c",
@@ -1337,8 +1345,8 @@
     },
     {
       "addr": "0x80000060",
-      "hex": "0x20c6c703",
-      "text": "lbu a4,524(a3) # 8000020c <ubyte>",
+      "hex": "0x2146c703",
+      "text": "lbu a4,532(a3) # 80000214 <ubyte>",
       "function": "main",
       "c_line": 22,
       "format": "I",
@@ -1348,8 +1356,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000001100",
-          "meaning": "immediate = 524"
+          "bits": "001000010100",
+          "meaning": "immediate = 532"
         },
         {
           "name": "rs1",
@@ -1380,7 +1388,7 @@
           "meaning": "opcode = LOAD"
         }
       ],
-      "immediate": 524
+      "immediate": 532
     },
     {
       "addr": "0x80000064",
@@ -1518,8 +1526,8 @@
     },
     {
       "addr": "0x80000070",
-      "hex": "0x20458593",
-      "text": "addi a1,a1,516 # 80000204 <halves>",
+      "hex": "0x20c58593",
+      "text": "addi a1,a1,524 # 8000020c <halves>",
       "function": "main",
       "c_line": 23,
       "format": "I",
@@ -1529,8 +1537,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000000100",
-          "meaning": "immediate = 516"
+          "bits": "001000001100",
+          "meaning": "immediate = 524"
         },
         {
           "name": "rs1",
@@ -1561,7 +1569,7 @@
           "meaning": "opcode = OP-IMM: register-immediate ALU"
         }
       ],
-      "immediate": 516
+      "immediate": 524
     },
     {
       "addr": "0x80000074",
@@ -1699,8 +1707,8 @@
     },
     {
       "addr": "0x80000080",
-      "hex": "0x20060613",
-      "text": "addi a2,a2,512 # 80000200 <bytes>",
+      "hex": "0x20860613",
+      "text": "addi a2,a2,520 # 80000208 <bytes>",
       "function": "main",
       "c_line": 24,
       "format": "I",
@@ -1710,8 +1718,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000000000",
-          "meaning": "immediate = 512"
+          "bits": "001000001000",
+          "meaning": "immediate = 520"
         },
         {
           "name": "rs1",
@@ -1742,7 +1750,7 @@
           "meaning": "opcode = OP-IMM: register-immediate ALU"
         }
       ],
-      "immediate": 512
+      "immediate": 520
     },
     {
       "addr": "0x80000084",
@@ -2770,8 +2778,8 @@
     },
     {
       "addr": "0x800000d4",
-      "hex": "0x20e85603",
-      "text": "lhu a2,526(a6) # 8000020e <uhalf>",
+      "hex": "0x21685603",
+      "text": "lhu a2,534(a6) # 80000216 <uhalf>",
       "function": "main",
       "c_line": 34,
       "format": "I",
@@ -2781,8 +2789,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000001110",
-          "meaning": "immediate = 526"
+          "bits": "001000010110",
+          "meaning": "immediate = 534"
         },
         {
           "name": "rs1",
@@ -2813,7 +2821,7 @@
           "meaning": "opcode = LOAD"
         }
       ],
-      "immediate": 526
+      "immediate": 534
     },
     {
       "addr": "0x800000d8",
@@ -3336,8 +3344,8 @@
     },
     {
       "addr": "0x80000100",
-      "hex": "0x20c6c703",
-      "text": "lbu a4,524(a3)",
+      "hex": "0x2146c703",
+      "text": "lbu a4,532(a3)",
       "function": "main",
       "c_line": 38,
       "format": "I",
@@ -3347,8 +3355,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000001100",
-          "meaning": "immediate = 524"
+          "bits": "001000010100",
+          "meaning": "immediate = 532"
         },
         {
           "name": "rs1",
@@ -3379,7 +3387,7 @@
           "meaning": "opcode = LOAD"
         }
       ],
-      "immediate": 524
+      "immediate": 532
     },
     {
       "addr": "0x80000104",
@@ -3592,8 +3600,8 @@
     },
     {
       "addr": "0x80000114",
-      "hex": "0x20c6c703",
-      "text": "lbu a4,524(a3)",
+      "hex": "0x2146c703",
+      "text": "lbu a4,532(a3)",
       "function": "main",
       "c_line": 39,
       "format": "I",
@@ -3603,8 +3611,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000001100",
-          "meaning": "immediate = 524"
+          "bits": "001000010100",
+          "meaning": "immediate = 532"
         },
         {
           "name": "rs1",
@@ -3635,7 +3643,7 @@
           "meaning": "opcode = LOAD"
         }
       ],
-      "immediate": 524
+      "immediate": 532
     },
     {
       "addr": "0x80000118",
@@ -3693,8 +3701,8 @@
     },
     {
       "addr": "0x8000011c",
-      "hex": "0x00f7f793",
-      "text": "andi a5,a5,15",
+      "hex": "0x00f7f613",
+      "text": "andi a2,a5,15",
       "function": "main",
       "c_line": 39,
       "format": "I",
@@ -3725,8 +3733,8 @@
           "name": "rd",
           "hi": 11,
           "lo": 7,
-          "bits": "01111",
-          "meaning": "rd = x15 (a5)"
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
         },
         {
           "name": "opcode",
@@ -3740,8 +3748,8 @@
     },
     {
       "addr": "0x80000120",
-      "hex": "0x00f707b3",
-      "text": "add a5,a4,a5",
+      "hex": "0x00c70733",
+      "text": "add a4,a4,a2",
       "function": "main",
       "c_line": 39,
       "format": "R",
@@ -3758,8 +3766,8 @@
           "name": "rs2",
           "hi": 24,
           "lo": 20,
-          "bits": "01111",
-          "meaning": "rs2 = x15 (a5)"
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
         },
         {
           "name": "rs1",
@@ -3779,8 +3787,8 @@
           "name": "rd",
           "hi": 11,
           "lo": 7,
-          "bits": "01111",
-          "meaning": "rd = x15 (a5)"
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
         },
         {
           "name": "opcode",
@@ -3794,8 +3802,8 @@
     },
     {
       "addr": "0x80000124",
-      "hex": "0x00f40433",
-      "text": "add s0,s0,a5",
+      "hex": "0x00e40433",
+      "text": "add s0,s0,a4",
       "function": "main",
       "c_line": 39,
       "format": "R",
@@ -3812,8 +3820,8 @@
           "name": "rs2",
           "hi": 24,
           "lo": 20,
-          "bits": "01111",
-          "meaning": "rs2 = x15 (a5)"
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
         },
         {
           "name": "rs1",
@@ -3848,8 +3856,8 @@
     },
     {
       "addr": "0x80000128",
-      "hex": "0x800007b7",
-      "text": "lui a5,0x80000",
+      "hex": "0x80000737",
+      "text": "lui a4,0x80000",
       "function": "main",
       "c_line": 40,
       "format": "U",
@@ -3866,8 +3874,8 @@
           "name": "rd",
           "hi": 11,
           "lo": 7,
-          "bits": "01111",
-          "meaning": "rd = x15 (a5)"
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
         },
         {
           "name": "opcode",
@@ -3881,8 +3889,8 @@
     },
     {
       "addr": "0x8000012c",
-      "hex": "0x2087a783",
-      "text": "lw a5,520(a5) # 80000208 <big>",
+      "hex": "0x21072703",
+      "text": "lw a4,528(a4) # 80000210 <big>",
       "function": "main",
       "c_line": 40,
       "format": "I",
@@ -3892,15 +3900,15 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000001000",
-          "meaning": "immediate = 520"
+          "bits": "001000010000",
+          "meaning": "immediate = 528"
         },
         {
           "name": "rs1",
           "hi": 19,
           "lo": 15,
-          "bits": "01111",
-          "meaning": "rs1 = x15 (a5)"
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
         },
         {
           "name": "funct3",
@@ -3913,8 +3921,8 @@
           "name": "rd",
           "hi": 11,
           "lo": 7,
-          "bits": "01111",
-          "meaning": "rd = x15 (a5)"
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
         },
         {
           "name": "opcode",
@@ -3924,12 +3932,12 @@
           "meaning": "opcode = LOAD"
         }
       ],
-      "immediate": 520
+      "immediate": 528
     },
     {
       "addr": "0x80000130",
-      "hex": "0x20c6c703",
-      "text": "lbu a4,524(a3)",
+      "hex": "0x2146c603",
+      "text": "lbu a2,532(a3)",
       "function": "main",
       "c_line": 40,
       "format": "I",
@@ -3939,8 +3947,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000001100",
-          "meaning": "immediate = 524"
+          "bits": "001000010100",
+          "meaning": "immediate = 532"
         },
         {
           "name": "rs1",
@@ -3960,8 +3968,8 @@
           "name": "rd",
           "hi": 11,
           "lo": 7,
-          "bits": "01110",
-          "meaning": "rd = x14 (a4)"
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
         },
         {
           "name": "opcode",
@@ -3971,12 +3979,12 @@
           "meaning": "opcode = LOAD"
         }
       ],
-      "immediate": 524
+      "immediate": 532
     },
     {
       "addr": "0x80000134",
-      "hex": "0x40e787b3",
-      "text": "sub a5,a5,a4",
+      "hex": "0x40c70733",
+      "text": "sub a4,a4,a2",
       "function": "main",
       "c_line": 40,
       "format": "R",
@@ -3993,15 +4001,15 @@
           "name": "rs2",
           "hi": 24,
           "lo": 20,
-          "bits": "01110",
-          "meaning": "rs2 = x14 (a4)"
+          "bits": "01100",
+          "meaning": "rs2 = x12 (a2)"
         },
         {
           "name": "rs1",
           "hi": 19,
           "lo": 15,
-          "bits": "01111",
-          "meaning": "rs1 = x15 (a5)"
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
         },
         {
           "name": "funct3",
@@ -4014,8 +4022,8 @@
           "name": "rd",
           "hi": 11,
           "lo": 7,
-          "bits": "01111",
-          "meaning": "rd = x15 (a5)"
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
         },
         {
           "name": "opcode",
@@ -4029,8 +4037,8 @@
     },
     {
       "addr": "0x80000138",
-      "hex": "0x00f40433",
-      "text": "add s0,s0,a5",
+      "hex": "0x00e40433",
+      "text": "add s0,s0,a4",
       "function": "main",
       "c_line": 40,
       "format": "R",
@@ -4047,8 +4055,8 @@
           "name": "rs2",
           "hi": 24,
           "lo": 20,
-          "bits": "01111",
-          "meaning": "rs2 = x15 (a5)"
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
         },
         {
           "name": "rs1",
@@ -4083,8 +4091,8 @@
     },
     {
       "addr": "0x8000013c",
-      "hex": "0x20e85783",
-      "text": "lhu a5,526(a6)",
+      "hex": "0x21685603",
+      "text": "lhu a2,534(a6)",
       "function": "main",
       "c_line": 42,
       "format": "I",
@@ -4094,8 +4102,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000001110",
-          "meaning": "immediate = 526"
+          "bits": "001000010110",
+          "meaning": "immediate = 534"
         },
         {
           "name": "rs1",
@@ -4115,8 +4123,8 @@
           "name": "rd",
           "hi": 11,
           "lo": 7,
-          "bits": "01111",
-          "meaning": "rd = x15 (a5)"
+          "bits": "01100",
+          "meaning": "rd = x12 (a2)"
         },
         {
           "name": "opcode",
@@ -4126,66 +4134,12 @@
           "meaning": "opcode = LOAD"
         }
       ],
-      "immediate": 526
+      "immediate": 534
     },
     {
       "addr": "0x80000140",
-      "hex": "0x01079613",
-      "text": "slli a2,a5,0x10",
-      "function": "main",
-      "c_line": 42,
-      "format": "I",
-      "opcode_name": "OP-IMM: register-immediate ALU",
-      "fields": [
-        {
-          "name": "funct7",
-          "hi": 31,
-          "lo": 25,
-          "bits": "0000000",
-          "meaning": "funct7"
-        },
-        {
-          "name": "shamt",
-          "hi": 24,
-          "lo": 20,
-          "bits": "10000",
-          "meaning": "shamt = 16"
-        },
-        {
-          "name": "rs1",
-          "hi": 19,
-          "lo": 15,
-          "bits": "01111",
-          "meaning": "rs1 = x15 (a5)"
-        },
-        {
-          "name": "funct3",
-          "hi": 14,
-          "lo": 12,
-          "bits": "001",
-          "meaning": "funct3 = slli"
-        },
-        {
-          "name": "rd",
-          "hi": 11,
-          "lo": 7,
-          "bits": "01100",
-          "meaning": "rd = x12 (a2)"
-        },
-        {
-          "name": "opcode",
-          "hi": 6,
-          "lo": 0,
-          "bits": "0010011",
-          "meaning": "opcode = OP-IMM: register-immediate ALU"
-        }
-      ],
-      "immediate": 16
-    },
-    {
-      "addr": "0x80000144",
-      "hex": "0x01065613",
-      "text": "srli a2,a2,0x10",
+      "hex": "0x01061813",
+      "text": "slli a6,a2,0x10",
       "function": "main",
       "c_line": 42,
       "format": "I",
@@ -4216,6 +4170,60 @@
           "name": "funct3",
           "hi": 14,
           "lo": 12,
+          "bits": "001",
+          "meaning": "funct3 = slli"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "10000",
+          "meaning": "rd = x16 (a6)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 16
+    },
+    {
+      "addr": "0x80000144",
+      "hex": "0x01085813",
+      "text": "srli a6,a6,0x10",
+      "function": "main",
+      "c_line": 42,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "shamt",
+          "hi": 24,
+          "lo": 20,
+          "bits": "10000",
+          "meaning": "shamt = 16"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "10000",
+          "meaning": "rs1 = x16 (a6)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
           "bits": "101",
           "meaning": "funct3 = srli/srai"
         },
@@ -4223,8 +4231,8 @@
           "name": "rd",
           "hi": 11,
           "lo": 7,
-          "bits": "01100",
-          "meaning": "rd = x12 (a2)"
+          "bits": "10000",
+          "meaning": "rd = x16 (a6)"
         },
         {
           "name": "opcode",
@@ -4238,8 +4246,8 @@
     },
     {
       "addr": "0x80000148",
-      "hex": "0x20c6c703",
-      "text": "lbu a4,524(a3)",
+      "hex": "0x2146c683",
+      "text": "lbu a3,532(a3)",
       "function": "main",
       "c_line": 42,
       "format": "I",
@@ -4249,8 +4257,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000001100",
-          "meaning": "immediate = 524"
+          "bits": "001000010100",
+          "meaning": "immediate = 532"
         },
         {
           "name": "rs1",
@@ -4270,8 +4278,8 @@
           "name": "rd",
           "hi": 11,
           "lo": 7,
-          "bits": "01110",
-          "meaning": "rd = x14 (a4)"
+          "bits": "01101",
+          "meaning": "rd = x13 (a3)"
         },
         {
           "name": "opcode",
@@ -4281,12 +4289,12 @@
           "meaning": "opcode = LOAD"
         }
       ],
-      "immediate": 524
+      "immediate": 532
     },
     {
       "addr": "0x8000014c",
-      "hex": "0x0ff77693",
-      "text": "andi a3,a4,255",
+      "hex": "0x0ff6f713",
+      "text": "andi a4,a3,255",
       "function": "main",
       "c_line": 42,
       "format": "I",
@@ -4303,8 +4311,8 @@
           "name": "rs1",
           "hi": 19,
           "lo": 15,
-          "bits": "01110",
-          "meaning": "rs1 = x14 (a4)"
+          "bits": "01101",
+          "meaning": "rs1 = x13 (a3)"
         },
         {
           "name": "funct3",
@@ -4317,8 +4325,8 @@
           "name": "rd",
           "hi": 11,
           "lo": 7,
-          "bits": "01101",
-          "meaning": "rd = x13 (a3)"
+          "bits": "01110",
+          "meaning": "rd = x14 (a4)"
         },
         {
           "name": "opcode",
@@ -4332,8 +4340,8 @@
     },
     {
       "addr": "0x80000150",
-      "hex": "0x00e7f463",
-      "text": "bgeu a5,a4,80000158 <main+0x11c>",
+      "hex": "0x00d67463",
+      "text": "bgeu a2,a3,80000158 <main+0x11c>",
       "function": "main",
       "c_line": 43,
       "format": "B",
@@ -4350,15 +4358,15 @@
           "name": "rs2",
           "hi": 24,
           "lo": 20,
-          "bits": "01110",
-          "meaning": "rs2 = x14 (a4)"
+          "bits": "01101",
+          "meaning": "rs2 = x13 (a3)"
         },
         {
           "name": "rs1",
           "hi": 19,
           "lo": 15,
-          "bits": "01111",
-          "meaning": "rs1 = x15 (a5)"
+          "bits": "01100",
+          "meaning": "rs1 = x12 (a2)"
         },
         {
           "name": "funct3",
@@ -4433,8 +4441,8 @@
     },
     {
       "addr": "0x80000158",
-      "hex": "0x00c6e463",
-      "text": "bltu a3,a2,80000160 <main+0x124>",
+      "hex": "0x01076463",
+      "text": "bltu a4,a6,80000160 <main+0x124>",
       "function": "main",
       "c_line": 45,
       "format": "B",
@@ -4451,15 +4459,15 @@
           "name": "rs2",
           "hi": 24,
           "lo": 20,
-          "bits": "01100",
-          "meaning": "rs2 = x12 (a2)"
+          "bits": "10000",
+          "meaning": "rs2 = x16 (a6)"
         },
         {
           "name": "rs1",
           "hi": 19,
           "lo": 15,
-          "bits": "01101",
-          "meaning": "rs1 = x13 (a3)"
+          "bits": "01110",
+          "meaning": "rs1 = x14 (a4)"
         },
         {
           "name": "funct3",
@@ -4534,10 +4542,111 @@
     },
     {
       "addr": "0x80000160",
-      "hex": "0x00b50c63",
-      "text": "beq a0,a1,80000178 <main+0x13c>",
+      "hex": "0x00e7f463",
+      "text": "bgeu a5,a4,80000168 <main+0x12c>",
       "function": "main",
       "c_line": 47,
+      "format": "B",
+      "opcode_name": "BRANCH",
+      "fields": [
+        {
+          "name": "imm[12|10:5]",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "offset bits 12, 10:5 (offset = 8)"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01110",
+          "meaning": "rs2 = x14 (a4)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01111",
+          "meaning": "rs1 = x15 (a5)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "111",
+          "meaning": "funct3 = bgeu"
+        },
+        {
+          "name": "imm[4:1|11]",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "offset bits 4:1, 11"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "1100011",
+          "meaning": "opcode = BRANCH"
+        }
+      ],
+      "immediate": 8
+    },
+    {
+      "addr": "0x80000164",
+      "hex": "0x1f440413",
+      "text": "addi s0,s0,500",
+      "function": "main",
+      "c_line": 48,
+      "format": "I",
+      "opcode_name": "OP-IMM: register-immediate ALU",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "000111110100",
+          "meaning": "immediate = 500"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01000",
+          "meaning": "rs1 = x8 (s0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = addi"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01000",
+          "meaning": "rd = x8 (s0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0010011",
+          "meaning": "opcode = OP-IMM: register-immediate ALU"
+        }
+      ],
+      "immediate": 500
+    },
+    {
+      "addr": "0x80000168",
+      "hex": "0x00b50c63",
+      "text": "beq a0,a1,80000180 <main+0x144>",
+      "function": "main",
+      "c_line": 49,
       "format": "B",
       "opcode_name": "BRANCH",
       "fields": [
@@ -4587,11 +4696,11 @@
       "immediate": 24
     },
     {
-      "addr": "0x80000164",
+      "addr": "0x8000016c",
       "hex": "0x00158793",
       "text": "addi a5,a1,1",
       "function": "main",
-      "c_line": 49,
+      "c_line": 51,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -4634,11 +4743,11 @@
       "immediate": 1
     },
     {
-      "addr": "0x80000168",
+      "addr": "0x80000170",
       "hex": "0x00a78463",
-      "text": "beq a5,a0,80000170 <main+0x134>",
+      "text": "beq a5,a0,80000178 <main+0x13c>",
       "function": "main",
-      "c_line": 49,
+      "c_line": 51,
       "format": "B",
       "opcode_name": "BRANCH",
       "fields": [
@@ -4688,11 +4797,11 @@
       "immediate": 8
     },
     {
-      "addr": "0x8000016c",
+      "addr": "0x80000174",
       "hex": "0x19040413",
       "text": "addi s0,s0,400",
       "function": "main",
-      "c_line": 50,
+      "c_line": 52,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -4735,7 +4844,7 @@
       "immediate": 400
     },
     {
-      "addr": "0x80000170",
+      "addr": "0x80000178",
       "hex": "0x00058793",
       "text": "addi a5,a1,0",
       "function": "main",
@@ -4782,9 +4891,9 @@
       "immediate": 0
     },
     {
-      "addr": "0x80000174",
+      "addr": "0x8000017c",
       "hex": "0x0140006f",
-      "text": "jal zero,80000188 <main+0x14c>",
+      "text": "jal zero,80000190 <main+0x154>",
       "function": "main",
       "c_line": 19,
       "format": "J",
@@ -4815,11 +4924,11 @@
       "immediate": 20
     },
     {
-      "addr": "0x80000178",
+      "addr": "0x80000180",
       "hex": "0x12c40413",
       "text": "addi s0,s0,300",
       "function": "main",
-      "c_line": 48,
+      "c_line": 50,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -4862,11 +4971,11 @@
       "immediate": 300
     },
     {
-      "addr": "0x8000017c",
+      "addr": "0x80000184",
       "hex": "0xfe9ff06f",
-      "text": "jal zero,80000164 <main+0x128>",
+      "text": "jal zero,8000016c <main+0x130>",
       "function": "main",
-      "c_line": 48,
+      "c_line": 50,
       "format": "J",
       "opcode_name": "JAL: jump and link",
       "fields": [
@@ -4895,11 +5004,11 @@
       "immediate": -24
     },
     {
-      "addr": "0x80000180",
+      "addr": "0x80000188",
       "hex": "0x00f40433",
       "text": "add s0,s0,a5",
       "function": "main",
-      "c_line": 52,
+      "c_line": 54,
       "format": "R",
       "opcode_name": "OP: register-register ALU",
       "fields": [
@@ -4949,11 +5058,11 @@
       "immediate": null
     },
     {
-      "addr": "0x80000184",
+      "addr": "0x8000018c",
       "hex": "0x00178793",
       "text": "addi a5,a5,1",
       "function": "main",
-      "c_line": 51,
+      "c_line": 53,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -4996,11 +5105,11 @@
       "immediate": 1
     },
     {
-      "addr": "0x80000188",
+      "addr": "0x80000190",
       "hex": "0xfe079ce3",
-      "text": "bne a5,zero,80000180 <main+0x144>",
+      "text": "bne a5,zero,80000188 <main+0x14c>",
       "function": "main",
-      "c_line": 51,
+      "c_line": 53,
       "format": "B",
       "opcode_name": "BRANCH",
       "fields": [
@@ -5050,11 +5159,11 @@
       "immediate": -8
     },
     {
-      "addr": "0x8000018c",
+      "addr": "0x80000194",
       "hex": "0x800009b7",
       "text": "lui s3,0x80000",
       "function": "main",
-      "c_line": 54,
+      "c_line": 56,
       "format": "U",
       "opcode_name": "LUI: load upper immediate",
       "fields": [
@@ -5083,11 +5192,11 @@
       "immediate": -2147483648
     },
     {
-      "addr": "0x80000190",
-      "hex": "0x2089aa23",
-      "text": "sw s0,532(s3) # 80000214 <word>",
+      "addr": "0x80000198",
+      "hex": "0x2089ae23",
+      "text": "sw s0,540(s3) # 8000021c <word>",
       "function": "main",
-      "c_line": 54,
+      "c_line": 56,
       "format": "S",
       "opcode_name": "STORE",
       "fields": [
@@ -5096,7 +5205,7 @@
           "hi": 31,
           "lo": 25,
           "bits": "0010000",
-          "meaning": "immediate bits [11:5] (immediate = 532)"
+          "meaning": "immediate bits [11:5] (immediate = 540)"
         },
         {
           "name": "rs2",
@@ -5123,7 +5232,7 @@
           "name": "imm[4:0]",
           "hi": 11,
           "lo": 7,
-          "bits": "10100",
+          "bits": "11100",
           "meaning": "immediate bits [4:0]"
         },
         {
@@ -5134,14 +5243,14 @@
           "meaning": "opcode = STORE"
         }
       ],
-      "immediate": 532
+      "immediate": 540
     },
     {
-      "addr": "0x80000194",
+      "addr": "0x8000019c",
       "hex": "0x01041793",
       "text": "slli a5,s0,0x10",
       "function": "main",
-      "c_line": 55,
+      "c_line": 57,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -5191,11 +5300,11 @@
       "immediate": 16
     },
     {
-      "addr": "0x80000198",
+      "addr": "0x800001a0",
       "hex": "0x4107d793",
       "text": "srai a5,a5,0x10",
       "function": "main",
-      "c_line": 55,
+      "c_line": 57,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -5245,11 +5354,11 @@
       "immediate": 16
     },
     {
-      "addr": "0x8000019c",
+      "addr": "0x800001a4",
       "hex": "0x80000937",
       "text": "lui s2,0x80000",
       "function": "main",
-      "c_line": 55,
+      "c_line": 57,
       "format": "U",
       "opcode_name": "LUI: load upper immediate",
       "fields": [
@@ -5278,11 +5387,11 @@
       "immediate": -2147483648
     },
     {
-      "addr": "0x800001a0",
-      "hex": "0x20f91823",
-      "text": "sh a5,528(s2) # 80000210 <half>",
+      "addr": "0x800001a8",
+      "hex": "0x20f91c23",
+      "text": "sh a5,536(s2) # 80000218 <half>",
       "function": "main",
-      "c_line": 55,
+      "c_line": 57,
       "format": "S",
       "opcode_name": "STORE",
       "fields": [
@@ -5291,7 +5400,7 @@
           "hi": 31,
           "lo": 25,
           "bits": "0010000",
-          "meaning": "immediate bits [11:5] (immediate = 528)"
+          "meaning": "immediate bits [11:5] (immediate = 536)"
         },
         {
           "name": "rs2",
@@ -5318,7 +5427,7 @@
           "name": "imm[4:0]",
           "hi": 11,
           "lo": 7,
-          "bits": "10000",
+          "bits": "11000",
           "meaning": "immediate bits [4:0]"
         },
         {
@@ -5329,14 +5438,14 @@
           "meaning": "opcode = STORE"
         }
       ],
-      "immediate": 528
+      "immediate": 536
     },
     {
-      "addr": "0x800001a4",
+      "addr": "0x800001ac",
       "hex": "0x01841793",
       "text": "slli a5,s0,0x18",
       "function": "main",
-      "c_line": 56,
+      "c_line": 58,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -5386,11 +5495,11 @@
       "immediate": 24
     },
     {
-      "addr": "0x800001a8",
+      "addr": "0x800001b0",
       "hex": "0x4187d793",
       "text": "srai a5,a5,0x18",
       "function": "main",
-      "c_line": 56,
+      "c_line": 58,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -5440,11 +5549,11 @@
       "immediate": 24
     },
     {
-      "addr": "0x800001ac",
+      "addr": "0x800001b4",
       "hex": "0x800004b7",
       "text": "lui s1,0x80000",
       "function": "main",
-      "c_line": 56,
+      "c_line": 58,
       "format": "U",
       "opcode_name": "LUI: load upper immediate",
       "fields": [
@@ -5473,11 +5582,11 @@
       "immediate": -2147483648
     },
     {
-      "addr": "0x800001b0",
-      "hex": "0x20f486a3",
-      "text": "sb a5,525(s1) # 8000020d <byte>",
+      "addr": "0x800001b8",
+      "hex": "0x20f48aa3",
+      "text": "sb a5,533(s1) # 80000215 <byte>",
       "function": "main",
-      "c_line": 56,
+      "c_line": 58,
       "format": "S",
       "opcode_name": "STORE",
       "fields": [
@@ -5486,7 +5595,7 @@
           "hi": 31,
           "lo": 25,
           "bits": "0010000",
-          "meaning": "immediate bits [11:5] (immediate = 525)"
+          "meaning": "immediate bits [11:5] (immediate = 533)"
         },
         {
           "name": "rs2",
@@ -5513,7 +5622,7 @@
           "name": "imm[4:0]",
           "hi": 11,
           "lo": 7,
-          "bits": "01101",
+          "bits": "10101",
           "meaning": "immediate bits [4:0]"
         },
         {
@@ -5524,14 +5633,14 @@
           "meaning": "opcode = STORE"
         }
       ],
-      "immediate": 525
+      "immediate": 533
     },
     {
-      "addr": "0x800001b4",
-      "hex": "0xe7dff0ef",
+      "addr": "0x800001bc",
+      "hex": "0xe75ff0ef",
       "text": "jal ra,80000030 <smaller>",
       "function": "main",
-      "c_line": 57,
+      "c_line": 59,
       "format": "J",
       "opcode_name": "JAL: jump and link",
       "fields": [
@@ -5539,8 +5648,8 @@
           "name": "imm[20|10:1|11|19:12]",
           "hi": 31,
           "lo": 12,
-          "bits": "11100111110111111111",
-          "meaning": "offset = -388"
+          "bits": "11100111010111111111",
+          "meaning": "offset = -396"
         },
         {
           "name": "rd",
@@ -5557,14 +5666,14 @@
           "meaning": "opcode = JAL: jump and link"
         }
       ],
-      "immediate": -388
+      "immediate": -396
     },
     {
-      "addr": "0x800001b8",
+      "addr": "0x800001c0",
       "hex": "0x00850533",
       "text": "add a0,a0,s0",
       "function": "main",
-      "c_line": 57,
+      "c_line": 59,
       "format": "R",
       "opcode_name": "OP: register-register ALU",
       "fields": [
@@ -5581,107 +5690,6 @@
           "lo": 20,
           "bits": "01000",
           "meaning": "rs2 = x8 (s0)"
-        },
-        {
-          "name": "rs1",
-          "hi": 19,
-          "lo": 15,
-          "bits": "01010",
-          "meaning": "rs1 = x10 (a0)"
-        },
-        {
-          "name": "funct3",
-          "hi": 14,
-          "lo": 12,
-          "bits": "000",
-          "meaning": "funct3 = add/sub"
-        },
-        {
-          "name": "rd",
-          "hi": 11,
-          "lo": 7,
-          "bits": "01010",
-          "meaning": "rd = x10 (a0)"
-        },
-        {
-          "name": "opcode",
-          "hi": 6,
-          "lo": 0,
-          "bits": "0110011",
-          "meaning": "opcode = OP: register-register ALU"
-        }
-      ],
-      "immediate": null
-    },
-    {
-      "addr": "0x800001bc",
-      "hex": "0x2149a783",
-      "text": "lw a5,532(s3)",
-      "function": "main",
-      "c_line": 57,
-      "format": "I",
-      "opcode_name": "LOAD",
-      "fields": [
-        {
-          "name": "imm[11:0]",
-          "hi": 31,
-          "lo": 20,
-          "bits": "001000010100",
-          "meaning": "immediate = 532"
-        },
-        {
-          "name": "rs1",
-          "hi": 19,
-          "lo": 15,
-          "bits": "10011",
-          "meaning": "rs1 = x19 (s3)"
-        },
-        {
-          "name": "funct3",
-          "hi": 14,
-          "lo": 12,
-          "bits": "010",
-          "meaning": "funct3 = lw"
-        },
-        {
-          "name": "rd",
-          "hi": 11,
-          "lo": 7,
-          "bits": "01111",
-          "meaning": "rd = x15 (a5)"
-        },
-        {
-          "name": "opcode",
-          "hi": 6,
-          "lo": 0,
-          "bits": "0000011",
-          "meaning": "opcode = LOAD"
-        }
-      ],
-      "immediate": 532
-    },
-    {
-      "addr": "0x800001c0",
-      "hex": "0x00f50533",
-      "text": "add a0,a0,a5",
-      "function": "main",
-      "c_line": 57,
-      "format": "R",
-      "opcode_name": "OP: register-register ALU",
-      "fields": [
-        {
-          "name": "funct7",
-          "hi": 31,
-          "lo": 25,
-          "bits": "0000000",
-          "meaning": "funct7"
-        },
-        {
-          "name": "rs2",
-          "hi": 24,
-          "lo": 20,
-          "bits": "01111",
-          "meaning": "rs2 = x15 (a5)"
         },
         {
           "name": "rs1",
@@ -5716,10 +5724,10 @@
     },
     {
       "addr": "0x800001c4",
-      "hex": "0x21095783",
-      "text": "lhu a5,528(s2)",
+      "hex": "0x21c9a783",
+      "text": "lw a5,540(s3)",
       "function": "main",
-      "c_line": 57,
+      "c_line": 59,
       "format": "I",
       "opcode_name": "LOAD",
       "fields": [
@@ -5727,8 +5735,109 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000010000",
-          "meaning": "immediate = 528"
+          "bits": "001000011100",
+          "meaning": "immediate = 540"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "10011",
+          "meaning": "rs1 = x19 (s3)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "010",
+          "meaning": "funct3 = lw"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01111",
+          "meaning": "rd = x15 (a5)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0000011",
+          "meaning": "opcode = LOAD"
+        }
+      ],
+      "immediate": 540
+    },
+    {
+      "addr": "0x800001c8",
+      "hex": "0x00f50533",
+      "text": "add a0,a0,a5",
+      "function": "main",
+      "c_line": 59,
+      "format": "R",
+      "opcode_name": "OP: register-register ALU",
+      "fields": [
+        {
+          "name": "funct7",
+          "hi": 31,
+          "lo": 25,
+          "bits": "0000000",
+          "meaning": "funct7"
+        },
+        {
+          "name": "rs2",
+          "hi": 24,
+          "lo": 20,
+          "bits": "01111",
+          "meaning": "rs2 = x15 (a5)"
+        },
+        {
+          "name": "rs1",
+          "hi": 19,
+          "lo": 15,
+          "bits": "01010",
+          "meaning": "rs1 = x10 (a0)"
+        },
+        {
+          "name": "funct3",
+          "hi": 14,
+          "lo": 12,
+          "bits": "000",
+          "meaning": "funct3 = add/sub"
+        },
+        {
+          "name": "rd",
+          "hi": 11,
+          "lo": 7,
+          "bits": "01010",
+          "meaning": "rd = x10 (a0)"
+        },
+        {
+          "name": "opcode",
+          "hi": 6,
+          "lo": 0,
+          "bits": "0110011",
+          "meaning": "opcode = OP: register-register ALU"
+        }
+      ],
+      "immediate": null
+    },
+    {
+      "addr": "0x800001cc",
+      "hex": "0x21895783",
+      "text": "lhu a5,536(s2)",
+      "function": "main",
+      "c_line": 59,
+      "format": "I",
+      "opcode_name": "LOAD",
+      "fields": [
+        {
+          "name": "imm[11:0]",
+          "hi": 31,
+          "lo": 20,
+          "bits": "001000011000",
+          "meaning": "immediate = 536"
         },
         {
           "name": "rs1",
@@ -5759,14 +5868,14 @@
           "meaning": "opcode = LOAD"
         }
       ],
-      "immediate": 528
+      "immediate": 536
     },
     {
-      "addr": "0x800001c8",
+      "addr": "0x800001d0",
       "hex": "0x01079793",
       "text": "slli a5,a5,0x10",
       "function": "main",
-      "c_line": 57,
+      "c_line": 59,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -5816,11 +5925,11 @@
       "immediate": 16
     },
     {
-      "addr": "0x800001cc",
+      "addr": "0x800001d4",
       "hex": "0x4107d793",
       "text": "srai a5,a5,0x10",
       "function": "main",
-      "c_line": 57,
+      "c_line": 59,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -5870,11 +5979,11 @@
       "immediate": 16
     },
     {
-      "addr": "0x800001d0",
+      "addr": "0x800001d8",
       "hex": "0x00a787b3",
       "text": "add a5,a5,a0",
       "function": "main",
-      "c_line": 57,
+      "c_line": 59,
       "format": "R",
       "opcode_name": "OP: register-register ALU",
       "fields": [
@@ -5924,11 +6033,11 @@
       "immediate": null
     },
     {
-      "addr": "0x800001d4",
-      "hex": "0x20d4c503",
-      "text": "lbu a0,525(s1)",
+      "addr": "0x800001dc",
+      "hex": "0x2154c503",
+      "text": "lbu a0,533(s1)",
       "function": "main",
-      "c_line": 57,
+      "c_line": 59,
       "format": "I",
       "opcode_name": "LOAD",
       "fields": [
@@ -5936,8 +6045,8 @@
           "name": "imm[11:0]",
           "hi": 31,
           "lo": 20,
-          "bits": "001000001101",
-          "meaning": "immediate = 525"
+          "bits": "001000010101",
+          "meaning": "immediate = 533"
         },
         {
           "name": "rs1",
@@ -5968,14 +6077,14 @@
           "meaning": "opcode = LOAD"
         }
       ],
-      "immediate": 525
+      "immediate": 533
     },
     {
-      "addr": "0x800001d8",
+      "addr": "0x800001e0",
       "hex": "0x01851513",
       "text": "slli a0,a0,0x18",
       "function": "main",
-      "c_line": 57,
+      "c_line": 59,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -6025,11 +6134,11 @@
       "immediate": 24
     },
     {
-      "addr": "0x800001dc",
+      "addr": "0x800001e4",
       "hex": "0x41855513",
       "text": "srai a0,a0,0x18",
       "function": "main",
-      "c_line": 57,
+      "c_line": 59,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -6079,11 +6188,11 @@
       "immediate": 24
     },
     {
-      "addr": "0x800001e0",
+      "addr": "0x800001e8",
       "hex": "0x00f50533",
       "text": "add a0,a0,a5",
       "function": "main",
-      "c_line": 58,
+      "c_line": 60,
       "format": "R",
       "opcode_name": "OP: register-register ALU",
       "fields": [
@@ -6133,11 +6242,11 @@
       "immediate": null
     },
     {
-      "addr": "0x800001e4",
+      "addr": "0x800001ec",
       "hex": "0x01c12083",
       "text": "lw ra,28(sp)",
       "function": "main",
-      "c_line": 58,
+      "c_line": 60,
       "format": "I",
       "opcode_name": "LOAD",
       "fields": [
@@ -6180,11 +6289,11 @@
       "immediate": 28
     },
     {
-      "addr": "0x800001e8",
+      "addr": "0x800001f0",
       "hex": "0x01812403",
       "text": "lw s0,24(sp)",
       "function": "main",
-      "c_line": 58,
+      "c_line": 60,
       "format": "I",
       "opcode_name": "LOAD",
       "fields": [
@@ -6227,11 +6336,11 @@
       "immediate": 24
     },
     {
-      "addr": "0x800001ec",
+      "addr": "0x800001f4",
       "hex": "0x01412483",
       "text": "lw s1,20(sp)",
       "function": "main",
-      "c_line": 58,
+      "c_line": 60,
       "format": "I",
       "opcode_name": "LOAD",
       "fields": [
@@ -6274,11 +6383,11 @@
       "immediate": 20
     },
     {
-      "addr": "0x800001f0",
+      "addr": "0x800001f8",
       "hex": "0x01012903",
       "text": "lw s2,16(sp)",
       "function": "main",
-      "c_line": 58,
+      "c_line": 60,
       "format": "I",
       "opcode_name": "LOAD",
       "fields": [
@@ -6321,11 +6430,11 @@
       "immediate": 16
     },
     {
-      "addr": "0x800001f4",
+      "addr": "0x800001fc",
       "hex": "0x00c12983",
       "text": "lw s3,12(sp)",
       "function": "main",
-      "c_line": 58,
+      "c_line": 60,
       "format": "I",
       "opcode_name": "LOAD",
       "fields": [
@@ -6368,11 +6477,11 @@
       "immediate": 12
     },
     {
-      "addr": "0x800001f8",
+      "addr": "0x80000200",
       "hex": "0x02010113",
       "text": "addi sp,sp,32",
       "function": "main",
-      "c_line": 58,
+      "c_line": 60,
       "format": "I",
       "opcode_name": "OP-IMM: register-immediate ALU",
       "fields": [
@@ -6415,11 +6524,11 @@
       "immediate": 32
     },
     {
-      "addr": "0x800001fc",
+      "addr": "0x80000204",
       "hex": "0x00008067",
       "text": "jalr zero,0(ra)",
       "function": "main",
-      "c_line": 58,
+      "c_line": 60,
       "format": "I",
       "opcode_name": "JALR: jump and link register",
       "fields": [
@@ -6473,6 +6582,6 @@
   "ram_base": "0x80000000",
   "ram_size_bytes": 4096,
   "entry": "0x80000000",
-  "tohost": "0x80000218",
+  "tohost": "0x80000220",
   "image_file": "tour.hex"
 }

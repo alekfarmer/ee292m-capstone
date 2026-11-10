@@ -73,6 +73,7 @@ RUN apt-get update \
       'iverilog=12.0-2*' \
       fonts-dejavu-core \
       device-tree-compiler \
+      make=4.4.1-2 \
       libreadline8t64 libtcl8.6 libffi8 zlib1g \
  && rm -rf /var/lib/apt/lists/*
 

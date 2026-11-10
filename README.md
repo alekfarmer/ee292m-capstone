@@ -51,6 +51,7 @@ make verify     # the gate: lint, tests, spot-check, smoke check
 make help       # every target
 ```
 
+If Docker is not running, every target says so and stops.
 The first `make up` or `make verify` gets the image by itself, and later
 runs reuse it. It downloads the image CI built and verified from this
 checkout's `docker/` files (the tag is a fingerprint of them), which takes a
@@ -150,7 +151,7 @@ containers.
 | `backend/artifacts/` | Generated, committed (below) |
 | `src/app/` | Python backend: pipelines and the API (`/docs` lists the endpoints) |
 | `src/web/` | The page (plain HTML, JS and SVG) |
-| `tests/` | pytest: M0-M4, rejected programs, API, architecture, portability, image fingerprint |
+| `tests/` | pytest: M0-M4, rejected programs, API, architecture, portability, image fingerprint, the Makefile's Docker check |
 
 Artifacts. The hardware ones sit in `backend/artifacts/`; each program's sit in
 a folder named after it (`backend/artifacts/sum/` for `sum.c`), so programs never
@@ -208,6 +209,11 @@ C line, the instruction and the ALU light up together), else the first cycle
 on a C line, else cycle 0. Tests check that every wire of every view carries the
 trace's value and that every input of every block is drawn connected; the
 smoke check loads the real page in headless Chromium and reads a drawn wire.
+It also drives the page (`src/app/pagedrive.py`, over Chromium's DevTools)
+and measures it: a long C line scrolls inside its pane, stepping leaves the
+window where it was, *fit to height* makes a tall block fit, the explanation
+keeps one height, a changed wire has a gold band, and typing a program and
+pressing *build and run* shows it (a rejected one keeps the old on screen).
 
 **Drill-down to gates (M4):** every block opens, down to its gates. The large
 modules are built from small structural blocks, so each view stays readable
@@ -239,15 +245,16 @@ every cycle and checks:
   PC register) against an independent RV32I model.
 
 For `sum.c` that is 404,472 wires, 89,205 gates and 14,534 unit outputs, and
-for `tour.c` 915,384, 201,885 and 32,894. The decoders (`maindec`, `aludec`,
+for `tour.c` 922,480, 203,450 and 33,149. The decoders (`maindec`, `aludec`,
 `branchunit`) have no model; Spike's comparison covers them only for the
 instructions the programs run, on the operands they run them with.
 `tour.c` (M5) runs all 37 RV32I instructions the core has
 (`tests/test_coverage.py` fails if the examples stop covering one), with
 operands where the signed and unsigned answers differ for `sltu`, `sltiu`
 and `sra`; that closed the `sltu`-as-`slt` blind spot. Running every
-instruction is still not testing every case: `bgeu` decided as `bge` stays a
-blind spot, because `tour.c`'s one `bgeu` compares two positive numbers.
+instruction is still not testing every case: `bgeu` decided as `bge` was a
+blind spot while `tour.c`'s one `bgeu` compared two positive numbers, until a
+second one compared 0xfffffff8 with 253 (2026-11-10).
 
 A program typed on the page passes the same build checks (gate level vs RTL
 vs Spike, every cycle) before it is shown, but not the spot-check, which runs
@@ -279,7 +286,10 @@ artifacts`.
 | The page ignores `#program=` | smoke: "not the program's source" | The backend builds and serves the typed program right; only the smoke check opens it on the page |
 | The explanation says a branch is taken when it is not | `make test`: `test_the_numbers_are_the_ones_spike_says` | The hardware is right; the test works out each branch's outcome from Spike's next pc |
 | The page never fills in the explanation panel | smoke: "the explanation panel says" | The API's explanations are right; only the smoke check reads the panel |
-| `bgeu` decided as `bge` | nothing (a known blind spot) | `tour.c`'s one `bgeu` compares two positive numbers, where signed and unsigned agree; the branch unit has no model |
+| Stepping scrolls the window too (`scrollIntoView`) | smoke: "stepping five cycles scrolled the window" | Every value is right; only a driven browser that scrolls down, steps and reads the window's position sees it |
+| *Build and run* reloads the old program | smoke: "the typed program to be built and drawn" | The backend builds and serves the typed program; only pressing the button in a browser shows the wrong one |
+| `bgeu` decided as `bge` | `make artifacts`: "hardware is at pc=" (Spike) | `tour.c`'s second `bgeu` compares 0xfffffff8 with 253, where signed and unsigned disagree (a blind spot until 2026-11-10); the branch unit has no model |
+| An unknown opcode executed as a memory write | nothing (a known blind spot) | No compiled program runs an unknown opcode, and the decoders have no model |
 
 The tripwire almost any wrong result moves is a0 = 55, checked two
 independent ways: Spike's exit code, and the core's own halt store in the
@@ -348,6 +358,7 @@ Round 6 (the author, trying the app, 2026-11-08; all built in):
 - The explanation panel jumped up and down with each cycle's text: it has one fixed height (about 7 lines), and a longer text scrolls inside it.
 - *Highlight changes* looked like bold on and off, though the key shows a gold bar: a changed wire had only a faint 1.2 px gold glow. It now has a 7 px gold band behind it; its value stays plain bold text, since a gold outline made the numbers hard to read.
 - `tests/test_page_layout.py` gains one check for each (seen failing first). They read the page's files, so how it looks was checked by eye in `make screenshot`.
+- 2026-11-10: those file-reading checks (and round 5's) are gone. The smoke check now measures each of them in a driven browser (see M3 above); each was seen failing on a broken page.
 
 ## Architecture and the backend/frontend boundary
 
