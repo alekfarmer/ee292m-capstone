@@ -228,6 +228,32 @@ PLANTS: tuple[Plant, ...] = (
         ),
     ),
     Plant(
+        name="stepping_scrolls_the_window",
+        defect="following the current instruction scrolls the window too (scrollIntoView)",
+        file="src/web/app.js",
+        old="    if (on) keepInPane(tr);",
+        new='    if (on) tr.scrollIntoView({ block: "nearest" });',
+        caught_at="smoke",
+        message="stepping five cycles scrolled the window",
+        why=(
+            "Every value on the page is still right; only a browser that scrolls "
+            "down, steps and reads the window's position sees it (round 6)."
+        ),
+    ),
+    Plant(
+        name="build_and_run_shows_the_old_program",
+        defect="after build and run, the page reloads the program it was showing",
+        file="src/web/app.js",
+        old="    await load(built.program);",
+        new="    await load(state.programName);",
+        caught_at="smoke",
+        message="the typed program to be built and drawn",
+        why=(
+            "The backend builds the typed program and serves it, so the API checks "
+            "pass; only pressing build and run in a browser shows the wrong program."
+        ),
+    ),
+    Plant(
         name="bgeu_as_bge",
         defect="the branch unit decides bgeu as a signed comparison (bge)",
         file="backend/rtl/branchunit.sv",
