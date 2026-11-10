@@ -259,14 +259,29 @@ PLANTS: tuple[Plant, ...] = (
         file="backend/rtl/branchunit.sv",
         old="3'b111:  taken = carry;         // bgeu",
         new="3'b111:  taken = ~(neg ^ ovf);  // bgeu",
+        caught_at="artifacts",
+        message="hardware is at pc=",
+        why=(
+            "A blind spot until 2026-11-10: tour.c's first bgeu compares 65534 with "
+            "253, both positive, where signed and unsigned agree. Its second compares "
+            "0xfffffff8 with 253: bgeu jumps over the body, bge (-8 >= 253) does not, "
+            "so the hardware's next pc differs from Spike's (the branch unit has no "
+            "spot-check model)."
+        ),
+    ),
+    Plant(
+        name="unknown_opcode_writes_memory",
+        defect="the main decoder executes an unknown opcode as a memory write",
+        file="backend/rtl/maindec.sv",
+        old="            default: ;",
+        new="            default: memwrite = 1'b1;",
         caught_at=None,
         message="",
         why=(
-            "A known blind spot: running every instruction is not testing every "
-            "case. tour.c's one bgeu compares 65534 with 253, both positive, where "
-            "signed and unsigned agree, so Spike sees the same branch; the branch "
-            "unit has no spot-check model. A program comparing a negative number "
-            "with a positive one, unsigned, would catch it."
+            "A known blind spot: no compiled program runs an unknown opcode (crt0 "
+            "has no fence or ecall either), so every cycle decodes a real "
+            "instruction; the decoders have no spot-check model, and Spike would "
+            "trap on an illegal instruction rather than run it."
         ),
     ),
 )
