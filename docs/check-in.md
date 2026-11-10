@@ -45,7 +45,7 @@ cycles, and every instruction's PC, encoding and register write match Spike.
 ## 2. What failed, the evidence, and what I changed
 
 | What failed | Evidence | What I changed |
-|---|---|---|
+| --- | --- | --- |
 | The plan's `-O1` | GCC computed the loop at compile time: `main` became `addi a0,zero,55; ret`, leaving nothing to step through | `-Og`: the loop stays, every instruction maps to a C line, 57 instructions in Spike |
 | ABC's gates for the large modules | The shifter (398 gates), the result mux (439) and the load/store unit (220) were piles of gates nobody could follow | Rebuilt them in the RTL from small structural blocks (barrel shifters of `mux2`, a `mux2` tree, store/load align), each view at most 96 gates |
 | Synthesis | Yosys deleted the whole core: `top` has no outputs | The RAM and register file are marked `(* keep *)` |
@@ -57,6 +57,7 @@ cycles, and every instruction's PC, encoding and register write match Spike.
 ## 3. What I am cutting, and what the draft still claims
 
 **Cut from the plan:**
+
 - `-O1` (above) and Verilator: the RTL runs in Icarus Verilog, and the gate
   netlist in Yosys `sim`.
 - Anything outside the brief's scope stays out: pipelining, caches, M/F/C,
@@ -67,6 +68,7 @@ cycles, and every instruction's PC, encoding and register write match Spike.
   tested, and not claimed.
 
 **What the draft still claims, and its limits:**
+
 - Every displayed bit of the committed programs (`sum.c`, `tour.c`) is
   checked in every cycle against the trace or an independent model.
 - A typed program passes the same build checks (gate level = RTL = Spike,
@@ -93,3 +95,20 @@ claim I can test. I keep it and close its known gap: add a `bgeu` with a
 negative operand to `tour.c`. Then the `bgeu_as_bge` plant must move in
 the answer key from "nothing" to "caught at `make artifacts`". I will show
 it failing first.
+
+## Done the same day, after the check-in
+
+Sections 1–4 describe `35db1d6`. The three changes they promise are on this
+branch, each with its check seen failing first:
+
+| Change | Commit | Seen failing, then passing |
+| --- | --- | --- |
+| `make image`, `pull` and `build` stop with "Docker is not running" | `be7ffd0` | `tests/test_makefile.py` runs the real Makefile with a stand-in `docker`: all three targets fell through to a pull or a build before |
+| Layout checks in a driven browser, not in the page's files; the editor's *build and run* clicked for the first time | `24fed4e` | Four CSS breakages at once gave four smoke failures ("the C source runs 288 px past its panel", ...); two new plants are caught at smoke |
+| A `bgeu` comparing 0xfffffff8 with 253 in `tour.c` (a0 still 157845) | `e6bec77` | `bgeu_as_bge` moved from "not caught" to caught at `make artifacts` |
+
+`make verify` is green: 220 tests, and the spot-check covers `tour.c`'s
+130 cycles. `make regression` reports 17 of 17 plants behaving as the key
+says. The key needs one blind spot, so it now names a new one: an unknown
+opcode executed as a memory write. No compiled program runs one, and the
+decoders still have no model, so the section 3 limit stands for them.
